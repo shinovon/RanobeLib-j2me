@@ -1,7 +1,7 @@
-MIDlet-1: Ran,,Ran
-MIDlet-Jar-URL: RanobeLib.jar
-MIDlet-Name: RanobeLib MIDlet Suite
-MIDlet-Vendor: MIDlet Suite Vendor
+MIDlet-Vendor: nnproject
 MIDlet-Version: 1.0.0
 MicroEdition-Configuration: CLDC-1.1
+MIDlet-1: Ran,,Ran
+MIDlet-Name: RanobeLib
 MicroEdition-Profile: MIDP-2.1
+MIDlet-Jar-URL: RanobeLib.jar
