@@ -264,7 +264,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						if (url == null) continue;
 						
 						try { 
-							Image img = getImage(proxyUrl(url.concat(";jpg;tw=180")));
+							Image img = getImage(proxyUrl(url.concat(";jpg;th=180")));
 
 //							int h = getHeight() / 3;
 //							int w = (int) (((float) h / img.getHeight()) * img.getWidth());
@@ -659,7 +659,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				throw new IOException("HTTP ".concat(Integer.toString(c)));
 			}
 			res = JSONStream.getStream(in = hc.openInputStream()).nextValue();
-			System.out.println(((JSONObject) res).format(0));
+//			System.out.println(((JSONObject) res).format(0));
 			if (((JSONObject) res).has("data"))
 				res = ((JSONObject) res).get("data");
 		} finally {
