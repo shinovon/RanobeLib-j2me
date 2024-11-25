@@ -110,7 +110,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		
 		Form f = new Form("RanobeLib");
 		f.addCommand(exitCmd);
-		f.addCommand(settingsCmd);
+//		f.addCommand(settingsCmd);
 		f.setCommandListener(this);
 		
 		searchField = new TextField("", "", 100, TextField.ANY);
@@ -434,6 +434,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			String type = e.getString("type");
 			
 			if ("paragraph".equals(type)) {
+				f.append("\n");
 				if (e.has("content")) parseJsonContent(f, e.getArray("content"));
 				
 //				Spacer s = new Spacer(8, smallPlainFont.getHeight());
@@ -445,7 +446,16 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				StringItem s = new StringItem(null, e.getString("text"));
 				int style = 0;
 				if (e.has("marks")) {
-					
+					JSONArray marks = e.getArray("marks");
+					int k = marks.size();
+					for (int m = 0; m < k; ++m) {
+						String t = marks.getObject(m).getString("type");
+						if ("italic".equals(t)) {
+							style |= Font.STYLE_ITALIC;
+						} else if ("bold".equals(t)) {
+							style |= Font.STYLE_BOLD;
+						}
+					}
 					// TODO marks:[{type:asd}] bold,italic
 				}
 				s.setFont(Font.getFont(0, style, Font.SIZE_MEDIUM));

@@ -190,7 +190,7 @@ public class TagTable {
     //new Dict( "q",          Dict.VERS_HTML40,  Dict.CM_INLINE, ParserImpl.getParseInline(), null ),
     new Dict( "a",          Dict.VERS_ALL,     Dict.CM_INLINE, ParserImpl.getParseInline(), null ),
     new Dict( "br",         Dict.VERS_ALL,     (Dict.CM_INLINE|Dict.CM_EMPTY), null, null ),
-   // new Dict( "img",        Dict.VERS_ALL,     (Dict.CM_INLINE|Dict.CM_IMG|Dict.CM_EMPTY), null, null ),
+    new Dict( "img",        Dict.VERS_ALL,     (Dict.CM_INLINE|Dict.CM_IMG|Dict.CM_EMPTY), null, null ),
     //new Dict( "object",     Dict.VERS_HTML40,  (Dict.CM_OBJECT|Dict.CM_HEAD|Dict.CM_IMG|Dict.CM_INLINE|Dict.CM_PARAM), ParserImpl.getParseBlock(), null ),
     //new Dict( "applet",     Dict.VERS_LOOSE,   (Dict.CM_OBJECT|Dict.CM_IMG|Dict.CM_INLINE|Dict.CM_PARAM), ParserImpl.getParseBlock(), null ),
     //new Dict( "servlet",    Dict.VERS_SUN,     (Dict.CM_OBJECT|Dict.CM_IMG|Dict.CM_INLINE|Dict.CM_PARAM), ParserImpl.getParseBlock(), null ),
