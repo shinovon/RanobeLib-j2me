@@ -26,6 +26,10 @@ import javax.microedition.midlet.MIDlet;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
 import cc.nnproject.json.JSONStream;
+import dom.NamedNodeMap;
+import dom.Node;
+import dom.NodeList;
+import tidy.Tidy;
 
 public class Ran extends MIDlet implements CommandListener, ItemCommandListener, Runnable {
 	
@@ -38,12 +42,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	
 	private static final String SETTINGS_RMS = "ransets";
 
-	private static final Font largefont = Font.getFont(0, 0, Font.SIZE_LARGE);
-	private static final Font medfont = Font.getFont(0, 0, Font.SIZE_MEDIUM);
-	private static final Font medboldfont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
-	private static final Font medbolditalicfont = Font.getFont(0, Font.STYLE_BOLD | Font.STYLE_ITALIC, Font.SIZE_MEDIUM);
-	private static final Font meditalicfont = Font.getFont(0, Font.STYLE_ITALIC, Font.SIZE_MEDIUM);
-	private static final Font smallfont = Font.getFont(0, 0, Font.SIZE_SMALL);
+	private static final Font largePlainFont = Font.getFont(0, 0, Font.SIZE_LARGE);
+	private static final Font medPlainFont = Font.getFont(0, 0, Font.SIZE_MEDIUM);
+	private static final Font medBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_MEDIUM);
+	private static final Font medItalicFont = Font.getFont(0, Font.STYLE_ITALIC, Font.SIZE_MEDIUM);
+	private static final Font medItalicBoldFont = Font.getFont(0, Font.STYLE_BOLD | Font.STYLE_ITALIC, Font.SIZE_MEDIUM);
+	private static final Font smallPlainFont = Font.getFont(0, 0, Font.SIZE_SMALL);
+	private static final Font smallBoldFont = Font.getFont(0, Font.STYLE_BOLD, Font.SIZE_SMALL);
+	private static final Font smallItalicFont = Font.getFont(0, Font.STYLE_ITALIC, Font.SIZE_SMALL);
 
 	private static Ran midlet;
 	private static Display display;
@@ -75,6 +81,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	
 	private static Object thumbLoadLock = new Object();
 	private static Vector thumbsToLoad = new Vector();
+
+	private static Tidy tidy;
 	
 	// settings
 	private static String proxyUrl = "http://nnp.nnchan.ru/hproxy.php?";
@@ -393,7 +401,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				Object content = j.get("content");
 				if (content instanceof String) {
 					// TODO html parse
-					f.append((String) content);
+//					f.append((String) content);
+					if (tidy == null) tidy = new Tidy();
+					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
 				} else {
 					String type = ((JSONObject) content).getString("type");
 					if ("doc".equals(type)) {
@@ -417,7 +427,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		running = false;
 	}
 
-	private void parseJsonContent(Form f, JSONArray content) {
+	private static void parseJsonContent(Form f, JSONArray content) {
 		int l = content.size();
 		for (int i = 0; i < l; ++i) {
 			JSONObject e = content.getObject(i);
@@ -426,25 +436,122 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			if ("paragraph".equals(type)) {
 				if (e.has("content")) parseJsonContent(f, e.getArray("content"));
 				
-				Spacer s = new Spacer(8, smallfont.getHeight());
-				s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-				f.append(s);
+//				Spacer s = new Spacer(8, smallPlainFont.getHeight());
+//				s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+//				f.append(s);
+
+				f.append("\n");
 			} else if ("text".equals(type)) {
 				StringItem s = new StringItem(null, e.getString("text"));
-				Font font = medfont;
+				int style = 0;
 				if (e.has("marks")) {
 					
 					// TODO marks:[{type:asd}] bold,italic
 				}
-				s.setFont(font);
+				s.setFont(Font.getFont(0, style, Font.SIZE_MEDIUM));
 				f.append(s);
 			} else if ("image".equals(type)) {
 				// TODO attrs:[images:[{image:id}]]
-				f.append(new ImageItem("Image", null, 0, null));
+				f.append(new ImageItem("Картинка", null, 0, null));
 			} else if ("listItem".equals(type)) {
 				// TODO
 				if (e.has("content")) parseJsonContent(f, e.getArray("content"));
 			}
+		}
+	}
+	
+	private static void parseHtmlContent(Form f, NodeList nl) {
+		int l = nl.getLength();
+		for (int i = 0; i < l; i++) {
+			Node n = nl.item(i);
+			
+			String k = n.getNodeName();
+			if (k.equals("head")) {
+				continue;
+			}
+			String v = n.getNodeValue();
+			//System.out.println(k + " " + v);
+			if (k.equals("br") || k.equals("p")) { //TODO: <p> tag parsing
+				f.append("\n");
+			}
+			if (k.equals("#text")) {
+				boolean b = true;
+				int fstyle = Font.STYLE_PLAIN;
+				int fsize = Font.SIZE_MEDIUM;
+				int layout = 0;
+				StringItem st = new StringItem(null, v);
+				st.setLayout(Item.LAYOUT_2);
+				boolean spoil = false;
+				if (n.getParentNode() != null) {
+					Node pn = n;
+					String pk;
+					// проверка всех родительских нодов
+					while(!((pn = pn.getParentNode()) == null || (pk = pn.getNodeName()).equals("body"))) {
+						//System.out.println(":PARENT NODE " + pk);
+						// стили текста
+						if (pk.equals("a")) {
+							String link = null;
+							NamedNodeMap atr = pn.getAttributes();
+							if (atr.getNamedItem("href") != null) {
+								link = atr.getNamedItem("href").getNodeValue();
+							}
+							continue;
+						}
+						if (pk.equals("span")) {
+							spoil = true;
+							String cls = null;
+							NamedNodeMap atr = pn.getAttributes();
+							if (atr.getNamedItem("class") != null) {
+								cls = atr.getNamedItem("class").getNodeValue();
+							}
+							if (cls == null) continue;
+							if (cls.equals("u") || cls.equals("o")) {
+								fstyle |= Font.STYLE_UNDERLINED;
+							}
+							continue;
+						}
+						if (pk.equals("b") || pk.equals("strong") || (pk.length() == 2 && pk.startsWith("h"))) {
+							fstyle |= Font.STYLE_BOLD;
+							if (pk.equals("h1") || pk.equals("h2")) {
+								fsize = Font.SIZE_LARGE;
+							}
+							continue;
+						}
+						if (pk.equals("em") || pk.equals("i")) {
+							fstyle |= Font.STYLE_ITALIC;
+							continue;
+						}
+						if (pk.equals("sub")) {
+							fstyle |= Font.STYLE_UNDERLINED;
+							continue;
+						}
+						if (pk.equals("small")) {
+							fsize = Font.SIZE_SMALL;
+							continue;
+						}
+					}
+				}
+				// пробел, чтоб тексты не слипались
+				if (v.endsWith(" ") && !spoil) {
+					st.setText(v.substring(0, v.length()-1));
+					f.append(st);
+					b = false;
+					Spacer s2 = new Spacer(medPlainFont.charWidth(' ') + 1, medPlainFont.getHeight());
+					s2.setLayout(Item.LAYOUT_2);
+					f.append(s2);
+				}
+				st.setLayout(Item.LAYOUT_2 | layout);
+				Font font = getFont(0, fstyle, fsize);
+				st.setFont(font);
+				
+				if (b) f.append(st);
+			} else if (k.equals("img")) {
+				// TODO
+				f.append(new ImageItem("Картинка", null, 0, null));
+			} else if (n.hasChildNodes()) {
+				parseHtmlContent(f, n.getChildNodes());
+			}
+			if (k.equals("p")) f.append("\n");
 		}
 	}
 
@@ -459,7 +566,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 	
 	static void display(Alert a, Displayable d) {
-		if(d == null) {
+		if (d == null) {
 			display.setCurrent(a);
 			return;
 		}
@@ -467,7 +574,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 
 	static void display(Displayable d) {
-		if(d instanceof Alert) {
+		if (d instanceof Alert) {
 			display.setCurrent((Alert) d, mainForm);
 			return;
 		}
@@ -491,6 +598,40 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
 		a.setTimeout(30000);
 		return a;
+	}
+
+	private static Font getFont(int i, int j, int k) {
+		if (i == 0) {
+			if (k == Font.SIZE_SMALL) {
+				if (j == Font.STYLE_BOLD) {
+					return smallBoldFont;
+				}
+				if (j == Font.STYLE_ITALIC) {
+					return smallItalicFont;
+				}
+				if (j == Font.STYLE_PLAIN) {
+					return smallPlainFont;
+				}
+			}
+			if (k == Font.SIZE_MEDIUM) {
+				if (j == Font.STYLE_BOLD) {
+					return medBoldFont;
+				}
+				if (j == Font.STYLE_ITALIC) {
+					return medItalicFont;
+				}
+				if (j == (Font.STYLE_BOLD | Font.STYLE_ITALIC)) {
+					return medItalicBoldFont;
+				}
+				if (j == Font.STYLE_PLAIN) {
+					return medPlainFont;
+				}
+			}
+			if (k == Font.SIZE_LARGE) {
+				return largePlainFont;
+			}
+		}
+		return Font.getFont(i, j, k);
 	}
 	
 	private static Object api(String url) throws IOException {
@@ -535,7 +676,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		byte[] readBuf = new byte[bufferSize];
 		int readLen;
 		while ((readLen = inputStream.read(readBuf)) != -1) {
-			if(count + readLen > buf.length) {
+			if (count + readLen > buf.length) {
 				byte[] newbuf = new byte[count + expandSize];
 				System.arraycopy(buf, 0, newbuf, 0, count);
 				buf = newbuf;
@@ -543,7 +684,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			System.arraycopy(readBuf, 0, buf, count, readLen);
 			count += readLen;
 		}
-		if(buf.length == count) {
+		if (buf.length == count) {
 			return buf;
 		}
 		byte[] res = new byte[count];
@@ -570,7 +711,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			hc = open(url);
 			hc.setRequestMethod("GET");
 			int r;
-			if((r = hc.getResponseCode()) >= 400) {
+			if ((r = hc.getResponseCode()) >= 400) {
 				throw new IOException("HTTP " + r);
 			}
 			in = hc.openInputStream();
