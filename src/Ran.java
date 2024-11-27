@@ -400,8 +400,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				
 				Object content = j.get("content");
 				if (content instanceof String) {
-					// TODO html parse
-//					f.append((String) content);
 					if (tidy == null) tidy = new Tidy();
 					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
 				} else {
@@ -462,6 +460,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				f.append(s);
 			} else if ("image".equals(type)) {
 				// TODO attrs:[images:[{image:id}]]
+//				String url = e.getArray("attrs").getObject(0).getArray("images").getObject(0).getString("image");
 				f.append(new ImageItem("Картинка", null, 0, null));
 			} else if ("listItem".equals(type)) {
 				// TODO
@@ -480,7 +479,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				continue;
 			}
 			String v = n.getNodeValue();
-			//System.out.println(k + " " + v);
 			if (k.equals("br") || k.equals("p")) { //TODO: <p> tag parsing
 				f.append("\n");
 			}
@@ -497,7 +495,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					String pk;
 					// проверка всех родительских нодов
 					while(!((pn = pn.getParentNode()) == null || (pk = pn.getNodeName()).equals("body"))) {
-						//System.out.println(":PARENT NODE " + pk);
 						// стили текста
 						if (pk.equals("a")) {
 							String link = null;
@@ -557,7 +554,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				if (b) f.append(st);
 			} else if (k.equals("img")) {
 				// TODO
-				f.append(new ImageItem("Картинка", null, 0, null));
+//				NamedNodeMap atr = n.getAttributes();
+//				if (atr.getNamedItem("src") != null) {
+//					String url = atr.getNamedItem("src").getNodeValue();
+					f.append(new ImageItem("Картинка", null, 0, null));
+//				}
 			} else if (n.hasChildNodes()) {
 				parseHtmlContent(f, n.getChildNodes());
 			}
