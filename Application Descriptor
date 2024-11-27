@@ -1,7 +1,7 @@
 MIDlet-Vendor: nnproject
 MIDlet-Version: 0.1.0
 MicroEdition-Configuration: CLDC-1.1
-MIDlet-1: Ran,,Ran
+MIDlet-1: RanobeLib,,Ran
 MIDlet-Name: RanobeLib
 MicroEdition-Profile: MIDP-2.1
 MIDlet-Jar-URL: RanobeLib.jar
