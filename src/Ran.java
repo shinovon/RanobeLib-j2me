@@ -26,10 +26,6 @@ import javax.microedition.midlet.MIDlet;
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
 import cc.nnproject.json.JSONStream;
-import dom.NamedNodeMap;
-import dom.Node;
-import dom.NodeList;
-import tidy.Tidy;
 
 public class Ran extends MIDlet implements CommandListener, ItemCommandListener, Runnable {
 	
@@ -81,8 +77,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	
 	private static Object thumbLoadLock = new Object();
 	private static Vector thumbsToLoad = new Vector();
-
-	private static Tidy tidy;
 	
 	// settings
 	private static String proxyUrl = null;
@@ -428,7 +422,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 
 	private static void parseJsonContent(Form f, JSONArray content) {
-		System.out.println("parseJsonContent:\n" + content);
 		int l = content.size();
 		for (int i = 0; i < l; ++i) {
 			JSONObject e = content.getObject(i);
@@ -473,7 +466,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 	
 	private static void parseHtmlContent2(Form f, String src) {
-		System.out.println("parseHtmlContent:\n" + src);
 		int d = src.indexOf('<');
 		int len = src.length();
 		int o = 0;
@@ -500,7 +492,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					}
 				}
 				tag = src.substring(d + 2, src.indexOf('>', d));
-				System.out.println("tag end " + tag);
 				if ("b".equals(tag) || "strong".equals(tag)) {
 					fstyle &= ~Font.STYLE_BOLD;
 				} else if ("h1".equals(tag)) {
@@ -531,7 +522,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				}
 				
 				tag = src.substring(d + 1, src.indexOf('>', d));
-				System.out.println("tag start " + tag);
 				if ("b".equals(tag) || "strong".equals(tag)) {
 					fstyle |= Font.STYLE_BOLD;
 				} else if ("h1".equals(tag)) {
@@ -595,107 +585,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			}
 			l = c;
 			sb.append(c);
-		}
-	}
-
-	private static void parseHtmlContent(Form f, NodeList nl) {
-		System.out.println("parseHtmlContent");
-		int l = nl.getLength();
-		for (int i = 0; i < l; i++) {
-			Node n = nl.item(i);
-			
-			String k = n.getNodeName();
-			if (k.equals("head")) {
-				continue;
-			}
-//			System.out.println("node: " + k);
-			String v = n.getNodeValue();
-			if (k.equals("br") || k.equals("p")) { //TODO: <p> tag parsing
-				f.append("\n");
-			}
-			if (k.equals("#text")) {
-//				System.out.println("text: " + v);
-				boolean b = true;
-				int fstyle = Font.STYLE_PLAIN;
-				int fsize = Font.SIZE_MEDIUM;
-				int layout = 0;
-				StringItem st = new StringItem(null, v);
-				st.setLayout(Item.LAYOUT_2);
-				boolean spoil = false;
-				if (n.getParentNode() != null) {
-					Node pn = n;
-					String pk;
-					// проверка всех родительских нодов
-					while(!((pn = pn.getParentNode()) == null || (pk = pn.getNodeName()).equals("body"))) {
-//						System.out.println(":parent node " + pk);
-						// стили текста
-//						if (pk.equals("a")) {
-//							String link = null;
-//							NamedNodeMap atr = pn.getAttributes();
-//							if (atr.getNamedItem("href") != null) {
-//								link = atr.getNamedItem("href").getNodeValue();
-//							}
-//							continue;
-//						}
-						if (pk.equals("span")) {
-							spoil = true;
-							String cls = null;
-							NamedNodeMap atr = pn.getAttributes();
-							if (atr.getNamedItem("class") != null) {
-								cls = atr.getNamedItem("class").getNodeValue();
-							}
-							if (cls == null) continue;
-							if (cls.equals("u") || cls.equals("o")) {
-								fstyle |= Font.STYLE_UNDERLINED;
-							}
-							continue;
-						}
-						if (pk.equals("b") || pk.equals("strong") || (pk.length() == 2 && pk.startsWith("h"))) {
-							fstyle |= Font.STYLE_BOLD;
-							if (pk.equals("h1") || pk.equals("h2")) {
-								fsize = Font.SIZE_LARGE;
-							}
-							continue;
-						}
-						if (pk.equals("em") || pk.equals("i")) {
-							fstyle |= Font.STYLE_ITALIC;
-							continue;
-						}
-						if (pk.equals("sub")) {
-							fstyle |= Font.STYLE_UNDERLINED;
-							continue;
-						}
-						if (pk.equals("small")) {
-							fsize = Font.SIZE_SMALL;
-							continue;
-						}
-					}
-				}
-				st.setLayout(Item.LAYOUT_2 | layout);
-				Font font = getFont(0, fstyle, fsize);
-				st.setFont(font);
-				// пробел, чтоб тексты не слипались
-				if (v.endsWith(" ") && !spoil) {
-					st.setText(v.substring(0, v.length()-1));
-					f.append(st);
-					b = false;
-					Spacer s2 = new Spacer(medPlainFont.charWidth(' ') + 1, medPlainFont.getHeight());
-					s2.setLayout(Item.LAYOUT_2);
-					f.append(s2);
-				} else {
-					f.append(st);
-				}
-			} else if (k.equals("img")) {
-				// TODO
-//				NamedNodeMap atr = n.getAttributes();
-//				if (atr.getNamedItem("src") != null) {
-//					String url = atr.getNamedItem("src").getNodeValue();
-					f.append(new ImageItem("Картинка", null, 0, null));
-//				}
-			} else if (n.hasChildNodes()) {
-				parseHtmlContent(f, n.getChildNodes());
-			}
-//			if (k.equals("p")) f.append("\n");
 		}
 	}
 
