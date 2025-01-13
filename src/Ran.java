@@ -160,7 +160,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			
 			listForm = f;
 			
-			display(loadingAlert());
+			display(loadingAlert(), listForm);
 			start(RUN_LIST);
 			return;
 		}
@@ -176,7 +176,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			
 			listForm = f;
 			
-			display(loadingAlert());
+			display(loadingAlert(), listForm);
 			start(RUN_LIST);
 			return;
 		}
@@ -198,7 +198,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			mangaId = ((ImageItem) item).getAltText();
 			mangaForm = f;
 			
-			display(loadingAlert());
+			display(loadingAlert(), mangaForm);
 			start(RUN_MANGA);
 			return;
 		}
@@ -214,7 +214,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			chapterParams = s;
 			chapterForm = f;
 			
-			display(loadingAlert());
+			display(loadingAlert(), mangaForm);
 			start(RUN_CHAPTER);
 			return;
 		}
@@ -389,25 +389,38 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		case RUN_CHAPTER: {
 			Form f = chapterForm;
 			try {
+				Alert a = loadingAlert();
+				Gauge gauge = a.getIndicator();
+				display(a);
+				a.setString("Скачивание..");
 				StringBuffer sb = new StringBuffer("manga/").append(mangaId)
 						.append("/chapter?").append(chapterParams);
 				JSONObject j = (JSONObject) api(sb.toString());
-				
+
+				a.setString("Парсинг..");
+				sb.setLength(0);
+				sb.append("Том ")
+				.append(j.getString("volume"))
+				.append(" Глава ")
+				.append(j.getString("number"));
+				f.setTitle(sb.toString());
 				Object content = j.get("content");
 				if (content instanceof String) {
-					parseHtmlContent2(f, (String) content);
+					parseHtmlContent2(f, (String) content, gauge);
 //					if (tidy == null) tidy = new Tidy();
 //					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
 				} else {
 					String type = ((JSONObject) content).getString("type");
 					if ("doc".equals(type)) {
-						parseJsonContent(f, ((JSONObject) content).getArray("content"));
+						parseJsonContent(f, ((JSONObject) content).getArray("content"), gauge);
 					} else {
 						// unknown
 						f.append(content.toString());
 					}
 				}
-				
+
+				gauge.setMaxValue(Gauge.INDEFINITE);
+				gauge.setValue(Gauge.CONTINUOUS_RUNNING);
 				if (chapterForm == f)
 					display(f);
 			} catch (Exception e) {
@@ -421,15 +434,17 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		running = false;
 	}
 
-	private static void parseJsonContent(Form f, JSONArray content) {
+	private static void parseJsonContent(Form f, JSONArray content, Gauge gauge) {
 		int l = content.size();
+		if (l == 0) return;
+		if (gauge != null) gauge.setMaxValue(l);
 		for (int i = 0; i < l; ++i) {
 			JSONObject e = content.getObject(i);
 			String type = e.getString("type");
 			
 			if ("paragraph".equals(type)) {
 				f.append("\n");
-				if (e.has("content")) parseJsonContent(f, e.getArray("content"));
+				if (e.has("content")) parseJsonContent(f, e.getArray("content"), null);
 				
 //				Spacer s = new Spacer(8, smallPlainFont.getHeight());
 //				s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
@@ -460,38 +475,70 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				f.append(new ImageItem("Картинка", null, 0, null));
 			} else if ("listItem".equals(type)) {
 				// TODO
-				if (e.has("content")) parseJsonContent(f, e.getArray("content"));
+				if (e.has("content")) parseJsonContent(f, e.getArray("content"), null);
 			}
+			if (gauge != null) gauge.setValue(i);
 		}
 	}
 	
-	private static void parseHtmlContent2(Form f, String src) {
+	private static void parseHtmlContent2(Form f, String src, Gauge gauge) {
 		int d = src.indexOf('<');
 		int len = src.length();
+		if (len == 0) return;
 		int o = 0;
 		StringItem s;
 		StringBuffer sb = new StringBuffer();
 		int fstyle = Font.STYLE_PLAIN;
 		int fsize = Font.SIZE_MEDIUM;
 		String tag;
-		Font font = medPlainFont;
+		int spW = medPlainFont.charWidth(' ') + 1, spH = medPlainFont.getHeight();
 		
+		System.out.println("len: " + len);
+		gauge.setMaxValue(202);
+		char[] chars = src.toCharArray();
 		while (d != -1) {
-			if (src.charAt(d + 1) == '/') {
-				if (o != d) {
-					appendClear(sb, src, o, d);
-					
-					if (sb.length() != 0) {
-						s = new StringItem(null, sb.toString());
-						s.setFont(getFont(0, fstyle, fsize));
-						f.append(s);
-						if (sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
-							f.append(new Spacer(font.charWidth(' ') + 1, font.getHeight()));
-						
-						sb.setLength(0);
+			if (o != d) {
+				char l = 0;
+				for (int i = o; i < d; ++i) {
+					char c = chars[i];
+					if (c == '\r' || c == '\n' || c == '\t') {
+						c = ' ';
+					} else if (c == '&') {
+						char t;
+						if ((t = chars[++i]) == 'n') { // nbsp
+							if (chars[i += 4] == ';') {
+								c = ' ';
+							} else i -= 5;
+						} else if (t == 'l') { // lt
+							if (chars[i += 2] == ';') {
+								c = '<';
+							} else i -= 3;
+						} else if (t == 'g') { // gt
+							if (chars[i += 2] == ';') {
+								c = '>';
+							} else i -= 3;
+							c = '>';
+						} else i--;
 					}
+					if (c == ' ' && l == ' ') {
+						continue;
+					}
+					l = c;
+					sb.append(c);
 				}
-				tag = src.substring(d + 2, src.indexOf('>', d));
+				if (sb.length() != 0) {
+					s = new StringItem(null, sb.toString());
+					s.setFont(getFont(0, fstyle, fsize));
+					f.append(s);
+//					if (chars[d - 1] == ' ')
+//						f.append(new Spacer(spW, spH));
+					
+					sb.setLength(0);
+				}
+			}
+			int e = src.indexOf('>', d);
+			if (chars[d + 1] == '/') {
+				tag = src.substring(d + 2, e);
 				if ("b".equals(tag) || "strong".equals(tag)) {
 					fstyle &= ~Font.STYLE_BOLD;
 				} else if ("h1".equals(tag)) {
@@ -505,86 +552,43 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					fsize = Font.SIZE_MEDIUM;
 				} else if ("sub".equals(tag)) {
 					fstyle &= ~Font.STYLE_UNDERLINED;
-				} else if (tag.startsWith("p")) {
-					f.append("\n");
+				} else if ("p".equals(tag)) {
+					sb.append("\n");
 				}
 			} else {
-				appendClear(sb, src, o, d);
-				
-				if (sb.length() != 0) {
-					s = new StringItem(null, sb.toString());
-					s.setFont(getFont(0, fstyle, fsize));
-					f.append(s);
-					if (sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
-						f.append(new Spacer(font.charWidth(' ') + 1, font.getHeight()));
-					
-					sb.setLength(0);
-				}
-				
-				tag = src.substring(d + 1, src.indexOf('>', d));
-				if ("b".equals(tag) || "strong".equals(tag)) {
+				tag = src.substring(d + 1, e);
+				if ((chars[d + 1] == 'b' && chars[d + 2] == '>')
+						|| (chars[d + 1] == 's' && chars[d + 2] == 't')) {
 					fstyle |= Font.STYLE_BOLD;
-				} else if ("h1".equals(tag)) {
+				} else if (chars[d + 1] == 'h') {
 					fsize = Font.SIZE_LARGE;
-					fstyle |= Font.STYLE_BOLD;
-				} else if ("h2".equals(tag)) {
-					fsize = Font.SIZE_LARGE;
-				} else if ("em".equals(tag) || "i".equals(tag)) {
+					if (chars[d + 2] == '1') fstyle |= Font.STYLE_BOLD;
+				} else if ((chars[d + 1] == 'e' && chars[d + 2] == 'm')
+						|| (chars[d + 1] == 'i' && chars[d + 2] == '>')) {
 					fstyle |= Font.STYLE_ITALIC;
-				} else if ("small".equals(tag)) {
+				} else if (chars[d + 1] == 's' && chars[d + 2] == 'm') {
 					fsize = Font.SIZE_SMALL;
-				} else if ("sub".equals(tag)) {
+				} else if (chars[d + 1] == 's' && chars[d + 2] == 'u') {
 					fstyle |= Font.STYLE_UNDERLINED;
-				} else if (tag.startsWith("p")) {
-					f.append("\n");
-				} else if (tag.startsWith("br")) {
-					f.append("\n");
-				} else if (tag.startsWith("img")) {
+				} else if (chars[d + 1] == 'p'
+						|| (chars[d + 1] == 'b' && chars[d + 2] == 'r')) {
+					sb.append("\n");
+				} else if (chars[d + 1] == 'i' && chars[d + 2] == 'm') {
 					// TODO
 					f.append(new ImageItem("Картинка", null, 0, null));
 				}
 			}
-			d = src.indexOf('<', o = src.indexOf('>', d) + 1);
+			d = src.indexOf('<', o = e + 1);
+			if (d != -1) {
+				gauge.setValue((d*200)/len);
+			}
 		}
+		chars = null;
 		
 		if (o < len) {
 			s = new StringItem(null, src.substring(o + 1));
 			s.setFont(medPlainFont);
 			f.append(s);
-		}
-	}
-	
-	private static void appendClear(StringBuffer sb, String s, int begin, int end) {
-		char l = 0;
-		for (int i = begin; i < end; ++i) {
-			char c = s.charAt(i);
-			if (c == '\r' || c == '\n' || c == '\t') {
-				c = ' ';
-			} else if (c == '&') {
-				char t;
-				if ((t = s.charAt(++i)) == 'n') { // nbsp
-					s.charAt(++i); s.charAt(++i); s.charAt(++i); 
-					if (s.charAt(++i) == ';') {
-						c = ' ';
-					} else i -= 5;
-				} else if (t == 'l') { // lt
-					s.charAt(++i);
-					if (s.charAt(++i) == ';') {
-						c = '<';
-					} else i -= 3;
-				} else if (t == 'g') { // gt
-					s.charAt(++i);
-					if (s.charAt(++i) == ';') {
-						c = '>';
-					} else i -= 3;
-					c = '>';
-				} else i--;
-			}
-			if (c == ' ' && l == ' ') {
-				continue;
-			}
-			l = c;
-			sb.append(c);
 		}
 	}
 
