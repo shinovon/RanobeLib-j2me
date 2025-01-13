@@ -489,6 +489,18 @@ public class JSONStream extends Reader {
 				sb.append(l = (char) Integer.parseInt(new String(chars), 16));
 				continue;
 			}
+			if (c == 'n' && l == '\\') {
+				sb.append('\n');
+				continue;
+			}
+			if (c == 'r' && l == '\\') {
+				sb.append('\r');
+				continue;
+			}
+			if (c == 't' && l == '\\') {
+				sb.append('\t');
+				continue;
+			}
 			if (c == 0 || (l != '\\' && c == '"')) break;
 			sb.append(c);
 			l = c;
@@ -633,8 +645,7 @@ public class JSONStream extends Reader {
         iBuf = null;
         iBufAmount = 0;
         iBufPos = 0;
-        if (reader != null)
-        {
+        if (reader != null) {
             reader.close();
         }
     }
@@ -645,8 +656,7 @@ public class JSONStream extends Reader {
     public int read() throws IOException
     {
         int result = 0;
-        if (iBufPos >= iBufAmount)
-        {
+        if (iBufPos >= iBufAmount) {
             result = fillBuf();
         }
         if (result > -1)
