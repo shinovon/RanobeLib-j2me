@@ -397,7 +397,7 @@ public class JSONObject {
 		if (text == null || text.length() <= 1)
 			throw new RuntimeException("JSON: Empty text");
 		if (text.charAt(0) != '{')
-			throw new RuntimeException("JSON: Not JSON object");
+			throw new RuntimeException("JSON: Not JSON object: " + text);
 		return (JSONObject) parseJSON(text);
 	}
 

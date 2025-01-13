@@ -101,9 +101,14 @@ public class StreamInImpl extends StreamIn {
     0x00AF, 0x02D8, 0x02D9, 0x02DA, 0x00B8, 0x02DD, 0x02DB, 0x02C7
     };
 
-    public StreamInImpl(InputStream stream, int encoding, int tabsize)
+	private String src;
+	private int length;
+	private int count;
+
+    public StreamInImpl(String src, int encoding, int tabsize)
     {
-        this.stream = stream;
+        this.src = src;
+        this.length = src.length();
         this.pushed = false;
         this.c = (int)'\0';
         this.tabs = 0;
@@ -118,129 +123,135 @@ public class StreamInImpl extends StreamIn {
     /* read char from stream */
     public int readCharFromStream()
     {
-        int n, c, i, count;
-
-        try {
-            c = this.stream.read();
-
-            if (c == EndOfStream) {
-                this.endOfStream = true;
-                return c;
-            }
-
-            /*
-               A document in ISO-2022 based encoding uses some ESC sequences
-               called "designator" to switch character sets. The designators
-               defined and used in ISO-2022-JP are:
-
-                "ESC" + "(" + ?     for ISO646 variants
-
-                "ESC" + "$" + ?     and
-                "ESC" + "$" + "(" + ?   for multibyte character sets
-
-               Where ? stands for a single character used to indicate the
-               character set for multibyte characters.
-
-               Tidy handles this by preserving the escape sequence and
-               setting the top bit of each byte for non-ascii chars. This
-               bit is then cleared on output. The input stream keeps track
-               of the state to determine when to set/clear the bit.
-            */
-
-            if (this.encoding == Configuration.ISO2022)
-            {
-                if (c == 0x1b)  /* ESC */
-                {
-                    this.state = FSM_ESC;
-                    return c;
-                }
-
-                switch (this.state)
-                {
-                case FSM_ESC:
-                    if (c == '$')
-                        this.state = FSM_ESCD;
-                    else if (c == '(')
-                        this.state = FSM_ESCP;
-                    else
-                        this.state = FSM_ASCII;
-                    break;
-
-                case FSM_ESCD:
-                    if (c == '(')
-                        this.state = FSM_ESCDP;
-                    else
-                        this.state = FSM_NONASCII;
-                    break;
-
-                case FSM_ESCDP:
-                    this.state = FSM_NONASCII;
-                    break;
-
-                case FSM_ESCP:
-                    this.state = FSM_ASCII;
-                    break;
-
-                case FSM_NONASCII:
-                    c |= 0x80;
-                    break;
-                }
-
-                return c;
-            }
-
-            if (this.encoding != Configuration.UTF8)
-                return c;
-
-            /* deal with UTF-8 encoded char */
-
-            if ((c & 0xE0) == 0xC0)  /* 110X XXXX  two bytes */
-            {
-                n = c & 31;
-                count = 1;
-            }
-            else if ((c & 0xF0) == 0xE0)  /* 1110 XXXX  three bytes */
-            {
-                n = c & 15;
-                count = 2;
-            }
-            else if ((c & 0xF8) == 0xF0)  /* 1111 0XXX  four bytes */
-            {
-                n = c & 7;
-                count = 3;
-            }
-            else if ((c & 0xFC) == 0xF8)  /* 1111 10XX  five bytes */
-            {
-                n = c & 3;
-                count = 4;
-            }
-            else if ((c & 0xFE) == 0xFC)       /* 1111 110X  six bytes */
-            {
-                n = c & 1;
-                count = 5;
-            }
-            else  /* 0XXX XXXX one byte */
-                return c;
-
-            /* successor bytes should have the form 10XX XXXX */
-            for (i = 1; i <= count; ++i)
-            {
-                c = this.stream.read();
-
-                if (c == EndOfStream) {
-                    this.endOfStream = true;
-                    return c;
-                }
-
-                n = (n << 6) | (c & 0x3F);
-            }
-        }
-        catch (IOException e) {
-            System.err.println("StreamInImpl.readCharFromStream: " + e.toString());
-            n = EndOfStream;
-        }
-
-        return n;
+//        int n, c, i, count;
+//
+//        try {
+//            c = this.stream.read();
+//
+//            if (c == EndOfStream) {
+//                this.endOfStream = true;
+//                return c;
+//            }
+//
+//            /*
+//               A document in ISO-2022 based encoding uses some ESC sequences
+//               called "designator" to switch character sets. The designators
+//               defined and used in ISO-2022-JP are:
+//
+//                "ESC" + "(" + ?     for ISO646 variants
+//
+//                "ESC" + "$" + ?     and
+//                "ESC" + "$" + "(" + ?   for multibyte character sets
+//
+//               Where ? stands for a single character used to indicate the
+//               character set for multibyte characters.
+//
+//               Tidy handles this by preserving the escape sequence and
+//               setting the top bit of each byte for non-ascii chars. This
+//               bit is then cleared on output. The input stream keeps track
+//               of the state to determine when to set/clear the bit.
+//            */
+//
+//            if (this.encoding == Configuration.ISO2022)
+//            {
+//                if (c == 0x1b)  /* ESC */
+//                {
+//                    this.state = FSM_ESC;
+//                    return c;
+//                }
+//
+//                switch (this.state)
+//                {
+//                case FSM_ESC:
+//                    if (c == '$')
+//                        this.state = FSM_ESCD;
+//                    else if (c == '(')
+//                        this.state = FSM_ESCP;
+//                    else
+//                        this.state = FSM_ASCII;
+//                    break;
+//
+//                case FSM_ESCD:
+//                    if (c == '(')
+//                        this.state = FSM_ESCDP;
+//                    else
+//                        this.state = FSM_NONASCII;
+//                    break;
+//
+//                case FSM_ESCDP:
+//                    this.state = FSM_NONASCII;
+//                    break;
+//
+//                case FSM_ESCP:
+//                    this.state = FSM_ASCII;
+//                    break;
+//
+//                case FSM_NONASCII:
+//                    c |= 0x80;
+//                    break;
+//                }
+//
+//                return c;
+//            }
+//
+//            if (this.encoding != Configuration.UTF8)
+//                return c;
+//
+//            /* deal with UTF-8 encoded char */
+//
+//            if ((c & 0xE0) == 0xC0)  /* 110X XXXX  two bytes */
+//            {
+//                n = c & 31;
+//                count = 1;
+//            }
+//            else if ((c & 0xF0) == 0xE0)  /* 1110 XXXX  three bytes */
+//            {
+//                n = c & 15;
+//                count = 2;
+//            }
+//            else if ((c & 0xF8) == 0xF0)  /* 1111 0XXX  four bytes */
+//            {
+//                n = c & 7;
+//                count = 3;
+//            }
+//            else if ((c & 0xFC) == 0xF8)  /* 1111 10XX  five bytes */
+//            {
+//                n = c & 3;
+//                count = 4;
+//            }
+//            else if ((c & 0xFE) == 0xFC)       /* 1111 110X  six bytes */
+//            {
+//                n = c & 1;
+//                count = 5;
+//            }
+//            else  /* 0XXX XXXX one byte */
+//                return c;
+//
+//            /* successor bytes should have the form 10XX XXXX */
+//            for (i = 1; i <= count; ++i)
+//            {
+//                c = this.stream.read();
+//
+//                if (c == EndOfStream) {
+//                    this.endOfStream = true;
+//                    return c;
+//                }
+//
+//                n = (n << 6) | (c & 0x3F);
+//            }
+//        }
+//        catch (IOException e) {
+//            System.err.println("StreamInImpl.readCharFromStream: " + e.toString());
+//            n = EndOfStream;
+//        }
+//
+//        return n;
+    	if (count == length) {
+    		endOfStream = true;
+    		return EndOfStream;
+    	}
+    	int c = src.charAt(count++);
+    	return c;
     }
 
     public int readChar()
@@ -317,21 +328,21 @@ public class StreamInImpl extends StreamIn {
 
             /* watch out for IS02022 */
 
-            if (this.encoding == Configuration.RAW ||
-                this.encoding == Configuration.ISO2022)
-            {
-                this.curcol++;
-                break;
-            }
-
-            if (this.encoding == Configuration.MACROMAN)
-                c = Mac2Unicode[c];
+//            if (this.encoding == Configuration.RAW ||
+//                this.encoding == Configuration.ISO2022)
+//            {
+//                this.curcol++;
+//                break;
+//            }
+//
+//            if (this.encoding == Configuration.MACROMAN)
+//                c = Mac2Unicode[c];
 
             /* produced e.g. as a side-effect of smart quotes in Word */
 
             if (127 < c && c < 160)
             {
-                Report.encodingError((Lexer)this.lexer, Report.WINDOWS_CHARS, c);
+//                Report.encodingError((Lexer)this.lexer, Report.WINDOWS_CHARS, c);
 
                 c = Win2Unicode[c - 128];
 

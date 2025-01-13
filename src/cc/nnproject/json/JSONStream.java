@@ -490,15 +490,15 @@ public class JSONStream extends Reader {
 				continue;
 			}
 			if (c == 'n' && l == '\\') {
-				sb.append('\n');
+				sb.append(l = '\n');
 				continue;
 			}
 			if (c == 'r' && l == '\\') {
-				sb.append('\r');
+				sb.append(l = '\r');
 				continue;
 			}
 			if (c == 't' && l == '\\') {
-				sb.append('\t');
+				sb.append(l = '\t');
 				continue;
 			}
 			if (c == 0 || (l != '\\' && c == '"')) break;

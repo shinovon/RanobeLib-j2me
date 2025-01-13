@@ -85,7 +85,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static Tidy tidy;
 	
 	// settings
-	private static String proxyUrl = "http://nnp.nnchan.ru/hproxy.php?";
+	private static String proxyUrl = null;
 	private static boolean onlineResize = true;
 	private static boolean useProxy = true;
 
@@ -264,11 +264,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						if (url == null) continue;
 						
 						try { 
-							Image img = getImage(proxyUrl(url.concat(";jpg;th=180")));
+							Image img = getImage(proxyUrl(url));
 
-//							int h = getHeight() / 3;
-//							int w = (int) (((float) h / img.getHeight()) * img.getWidth());
-//							img = resize(img, w, h);
+							int h = getHeight() / 3;
+							int w = (int) (((float) h / img.getHeight()) * img.getWidth());
+							img = resize(img, w, h);
 							
 							item.setImage(img);
 						} catch (Exception e) {
@@ -357,6 +357,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
 						s.setDefaultCommand(chapterItemCmd);
 						s.setItemCommandListener(this);
+						s.setFont(smallBoldFont);
 						f.append(s);
 						chapterItems.put(s, sb.toString());
 					} else {
@@ -372,7 +373,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 								t = branch.getObject("user").getString("username");
 							}
 							s = new StringItem(null, " - ".concat(t));
-							System.out.println(t);
+							s.setFont(smallPlainFont);
 							s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
 							s.setDefaultCommand(chapterItemCmd);
 							s.setItemCommandListener(this);
@@ -400,8 +401,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				
 				Object content = j.get("content");
 				if (content instanceof String) {
-					if (tidy == null) tidy = new Tidy();
-					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
+					parseHtmlContent2(f, (String) content);
+//					if (tidy == null) tidy = new Tidy();
+//					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
 				} else {
 					String type = ((JSONObject) content).getString("type");
 					if ("doc".equals(type)) {
@@ -426,6 +428,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 
 	private static void parseJsonContent(Form f, JSONArray content) {
+		System.out.println("parseJsonContent:\n" + content);
 		int l = content.size();
 		for (int i = 0; i < l; ++i) {
 			JSONObject e = content.getObject(i);
@@ -456,7 +459,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					}
 					// TODO marks:[{type:asd}] bold,italic
 				}
-				s.setFont(Font.getFont(0, style, Font.SIZE_MEDIUM));
+				s.setFont(getFont(0, style, Font.SIZE_MEDIUM));
 				f.append(s);
 			} else if ("image".equals(type)) {
 				// TODO attrs:[images:[{image:id}]]
@@ -469,7 +472,134 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		}
 	}
 	
+	private static void parseHtmlContent2(Form f, String src) {
+		System.out.println("parseHtmlContent:\n" + src);
+		int d = src.indexOf('<');
+		int len = src.length();
+		int o = 0;
+		StringItem s;
+		StringBuffer sb = new StringBuffer();
+		int fstyle = Font.STYLE_PLAIN;
+		int fsize = Font.SIZE_MEDIUM;
+		String tag;
+		Font font = medPlainFont;
+		
+		while (d != -1) {
+			if (src.charAt(d + 1) == '/') {
+				if (o != d) {
+					appendClear(sb, src, o, d);
+					
+					if (sb.length() != 0) {
+						s = new StringItem(null, sb.toString());
+						s.setFont(getFont(0, fstyle, fsize));
+						f.append(s);
+						if (sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
+							f.append(new Spacer(font.charWidth(' ') + 1, font.getHeight()));
+						
+						sb.setLength(0);
+					}
+				}
+				tag = src.substring(d + 2, src.indexOf('>', d));
+				System.out.println("tag end " + tag);
+				if ("b".equals(tag) || "strong".equals(tag)) {
+					fstyle &= ~Font.STYLE_BOLD;
+				} else if ("h1".equals(tag)) {
+					fsize = Font.SIZE_MEDIUM;
+					fstyle &= ~Font.STYLE_BOLD;
+				} else if ("h2".equals(tag)) {
+					fsize = Font.SIZE_MEDIUM;
+				} else if ("em".equals(tag) || "i".equals(tag)) {
+					fstyle &= ~Font.STYLE_ITALIC;
+				} else if ("small".equals(tag)) {
+					fsize = Font.SIZE_MEDIUM;
+				} else if ("sub".equals(tag)) {
+					fstyle &= ~Font.STYLE_UNDERLINED;
+				} else if (tag.startsWith("p")) {
+					f.append("\n");
+				}
+			} else {
+				appendClear(sb, src, o, d);
+				
+				if (sb.length() != 0) {
+					s = new StringItem(null, sb.toString());
+					s.setFont(getFont(0, fstyle, fsize));
+					f.append(s);
+					if (sb.length() > 0 && sb.charAt(sb.length() - 1) == ' ')
+						f.append(new Spacer(font.charWidth(' ') + 1, font.getHeight()));
+					
+					sb.setLength(0);
+				}
+				
+				tag = src.substring(d + 1, src.indexOf('>', d));
+				System.out.println("tag start " + tag);
+				if ("b".equals(tag) || "strong".equals(tag)) {
+					fstyle |= Font.STYLE_BOLD;
+				} else if ("h1".equals(tag)) {
+					fsize = Font.SIZE_LARGE;
+					fstyle |= Font.STYLE_BOLD;
+				} else if ("h2".equals(tag)) {
+					fsize = Font.SIZE_LARGE;
+				} else if ("em".equals(tag) || "i".equals(tag)) {
+					fstyle |= Font.STYLE_ITALIC;
+				} else if ("small".equals(tag)) {
+					fsize = Font.SIZE_SMALL;
+				} else if ("sub".equals(tag)) {
+					fstyle |= Font.STYLE_UNDERLINED;
+				} else if (tag.startsWith("p")) {
+					f.append("\n");
+				} else if (tag.startsWith("br")) {
+					f.append("\n");
+				} else if (tag.startsWith("img")) {
+					// TODO
+					f.append(new ImageItem("Картинка", null, 0, null));
+				}
+			}
+			d = src.indexOf('<', o = src.indexOf('>', d) + 1);
+		}
+		
+		if (o < len) {
+			s = new StringItem(null, src.substring(o + 1));
+			s.setFont(medPlainFont);
+			f.append(s);
+		}
+	}
+	
+	private static void appendClear(StringBuffer sb, String s, int begin, int end) {
+		char l = 0;
+		for (int i = begin; i < end; ++i) {
+			char c = s.charAt(i);
+			if (c == '\r' || c == '\n' || c == '\t') {
+				c = ' ';
+			} else if (c == '&') {
+				char t;
+				if ((t = s.charAt(++i)) == 'n') { // nbsp
+					s.charAt(++i); s.charAt(++i); s.charAt(++i); 
+					if (s.charAt(++i) == ';') {
+						c = ' ';
+					} else i -= 5;
+				} else if (t == 'l') { // lt
+					s.charAt(++i);
+					if (s.charAt(++i) == ';') {
+						c = '<';
+					} else i -= 3;
+				} else if (t == 'g') { // gt
+					s.charAt(++i);
+					if (s.charAt(++i) == ';') {
+						c = '>';
+					} else i -= 3;
+					c = '>';
+				} else i--;
+			}
+			if (c == ' ' && l == ' ') {
+				continue;
+			}
+			l = c;
+			sb.append(c);
+		}
+	}
+
 	private static void parseHtmlContent(Form f, NodeList nl) {
+		System.out.println("parseHtmlContent");
 		int l = nl.getLength();
 		for (int i = 0; i < l; i++) {
 			Node n = nl.item(i);
@@ -478,11 +608,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			if (k.equals("head")) {
 				continue;
 			}
+//			System.out.println("node: " + k);
 			String v = n.getNodeValue();
 			if (k.equals("br") || k.equals("p")) { //TODO: <p> tag parsing
 				f.append("\n");
 			}
 			if (k.equals("#text")) {
+//				System.out.println("text: " + v);
 				boolean b = true;
 				int fstyle = Font.STYLE_PLAIN;
 				int fsize = Font.SIZE_MEDIUM;
@@ -495,15 +627,16 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					String pk;
 					// проверка всех родительских нодов
 					while(!((pn = pn.getParentNode()) == null || (pk = pn.getNodeName()).equals("body"))) {
+//						System.out.println(":parent node " + pk);
 						// стили текста
-						if (pk.equals("a")) {
-							String link = null;
-							NamedNodeMap atr = pn.getAttributes();
-							if (atr.getNamedItem("href") != null) {
-								link = atr.getNamedItem("href").getNodeValue();
-							}
-							continue;
-						}
+//						if (pk.equals("a")) {
+//							String link = null;
+//							NamedNodeMap atr = pn.getAttributes();
+//							if (atr.getNamedItem("href") != null) {
+//								link = atr.getNamedItem("href").getNodeValue();
+//							}
+//							continue;
+//						}
 						if (pk.equals("span")) {
 							spoil = true;
 							String cls = null;
@@ -538,6 +671,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						}
 					}
 				}
+				st.setLayout(Item.LAYOUT_2 | layout);
+				Font font = getFont(0, fstyle, fsize);
+				st.setFont(font);
 				// пробел, чтоб тексты не слипались
 				if (v.endsWith(" ") && !spoil) {
 					st.setText(v.substring(0, v.length()-1));
@@ -546,12 +682,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					Spacer s2 = new Spacer(medPlainFont.charWidth(' ') + 1, medPlainFont.getHeight());
 					s2.setLayout(Item.LAYOUT_2);
 					f.append(s2);
+				} else {
+					f.append(st);
 				}
-				st.setLayout(Item.LAYOUT_2 | layout);
-				Font font = getFont(0, fstyle, fsize);
-				st.setFont(font);
-				
-				if (b) f.append(st);
 			} else if (k.equals("img")) {
 				// TODO
 //				NamedNodeMap atr = n.getAttributes();
@@ -562,7 +695,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			} else if (n.hasChildNodes()) {
 				parseHtmlContent(f, n.getChildNodes());
 			}
-			if (k.equals("p")) f.append("\n");
+//			if (k.equals("p")) f.append("\n");
 		}
 	}
 
@@ -574,6 +707,10 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				wait();
 			}
 		} catch (Exception e) {}
+	}
+	
+	private static int getHeight() {
+		return mainForm.getHeight();
 	}
 	
 	static void display(Alert a, Displayable d) {
@@ -660,6 +797,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				throw new IOException("HTTP ".concat(Integer.toString(c)));
 			}
 			res = JSONStream.getStream(in = hc.openInputStream()).nextValue();
+//			res = JSONObject.parseObject(readUtf(in = hc.openInputStream(), (int) hc.getLength()));
 //			System.out.println(((JSONObject) res).format(0));
 			if (((JSONObject) res).has("data"))
 				res = ((JSONObject) res).get("data");
@@ -788,6 +926,155 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static String hex(int i) {
 		String s = Integer.toHexString(i);
 		return "%".concat(s.length() < 2 ? "0" : "").concat(s);
+	}
+
+	static Image resize(Image src_i, int size_w, int size_h) {
+		// set source size
+		int w = src_i.getWidth();
+		int h = src_i.getHeight();
+
+		// no change??
+		if (size_w == w && size_h == h)
+			return src_i;
+		
+//		if (MangaApp.mipmap) {
+//			while (w > size_w * 3 && h > size_h * 3) {
+//				src_i = halve(src_i);
+//				w /= 2;
+//				h /= 2;
+//			}
+//		}
+
+		int[] dst = new int[size_w * size_h];
+
+		resize_rgb_filtered(src_i, dst, w, h, size_w, size_h);
+
+		// not needed anymore
+		src_i = null;
+
+		return Image.createRGBImage(dst, size_w, size_h, true);
+	}
+	
+	public static Image halve(Image org) {
+		int w1 = org.getWidth();
+		int h1 = org.getHeight();
+		
+		int w2 = w1 / 2;
+		int h2 = h1 / 2;				
+		
+		int [] data = new int[w2 * h2];
+		int [] buffer = new int[w1 * 2];
+		
+		for(int offset = 0, i = 0; i < h2; i++) {
+			org.getRGB( buffer, 0, w1, 0, i * 2, w1, 2); // get two lines from the original
+			
+			int o1 = 0, o2 = 1;
+			int o3 = w1, o4 = w1 + 1;
+			
+			for(int j = 0; j < w2; j++) {
+				data[offset ++] = ((
+						((buffer[o1] & 0x00FF00FF) + (buffer[o2] & 0x00FF00FF) + (buffer[o3] & 0x00FF00FF) + (buffer[o4] & 0x00FF00FF)) >> 2
+						) & 0x00FF00FF) | ((
+						((buffer[o1] & 0xFF00FF00) >>> 2) + ((buffer[o2] & 0xFF00FF00) >>> 2) + 
+						((buffer[o3] & 0xFF00FF00) >>> 2) + ((buffer[o4] & 0xFF00FF00) >>> 2) 
+						) & 0xFF00FF00);
+						//mix( buffer[o1], buffer[o2], buffer[o3], buffer[o4]);			
+				o1 += 2;
+				o2 += 2;
+				o3 += 2;
+				o4 += 2;
+			}
+		}
+		
+		Image tmp = Image.createRGBImage(data, w2, h2, true);
+		data = null; // can this help GC at this point?
+		
+		return tmp;
+	}
+
+	private static final void resize_rgb_filtered(Image src_i, int[] dst, int w0, int h0, int w1, int h1) {
+		int[] buffer1 = new int[w0];
+		int[] buffer2 = new int[w0];
+
+		// UNOPTIMIZED bilinear filtering:
+		//
+		// The pixel position is defined by y_a and y_b,
+		// which are 24.8 fixed point numbers
+		// 
+		// for bilinear interpolation, we use y_a1 <= y_a <= y_b1
+		// and x_a1 <= x_a <= x_b1, with y_d and x_d defining how long
+		// from x/y_b1 we are.
+		//
+		// since we are resizing one line at a time, we will at most 
+		// need two lines from the source image (y_a1 and y_b1).
+		// this will save us some memory but will make the algorithm 
+		// noticeably slower
+
+		for (int index1 = 0, y = 0; y < h1; y++) {
+
+			final int y_a = ((y * h0) << 8) / h1;
+			final int y_a1 = y_a >> 8;
+			int y_d = y_a & 0xFF;
+
+			int y_b1 = y_a1 + 1;
+			if (y_b1 >= h0) {
+				y_b1 = h0 - 1;
+				y_d = 0;
+			}
+
+			// get the two affected lines:
+			src_i.getRGB(buffer1, 0, w0, 0, y_a1, w0, 1);
+			if (y_d != 0)
+				src_i.getRGB(buffer2, 0, w0, 0, y_b1, w0, 1);
+
+			for (int x = 0; x < w1; x++) {
+				// get this and the next point
+				int x_a = ((x * w0) << 8) / w1;
+				int x_a1 = x_a >> 8;
+				int x_d = x_a & 0xFF;
+
+				int x_b1 = x_a1 + 1;
+				if (x_b1 >= w0) {
+					x_b1 = w0 - 1;
+					x_d = 0;
+				}
+
+				// interpolate in x
+				int c12, c34;
+				int c1 = buffer1[x_a1];
+				int c3 = buffer1[x_b1];
+
+				// interpolate in y:
+				if (y_d == 0) {
+					c12 = c1;
+					c34 = c3;
+				} else {
+					int c2 = buffer2[x_a1];
+					int c4 = buffer2[x_b1];
+
+					final int v1 = y_d & 0xFF;
+					final int a_c2_RB = c1 & 0x00FF00FF;
+					final int a_c2_AG_org = c1 & 0xFF00FF00;
+
+					final int b_c2_RB = c3 & 0x00FF00FF;
+					final int b_c2_AG_org = c3 & 0xFF00FF00;
+
+					c12 = (a_c2_AG_org + ((((c2 >>> 8) & 0x00FF00FF) - (a_c2_AG_org >>> 8)) * v1)) & 0xFF00FF00
+							| (a_c2_RB + ((((c2 & 0x00FF00FF) - a_c2_RB) * v1) >> 8)) & 0x00FF00FF;
+					c34 = (b_c2_AG_org + ((((c4 >>> 8) & 0x00FF00FF) - (b_c2_AG_org >>> 8)) * v1)) & 0xFF00FF00
+							| (b_c2_RB + ((((c4 & 0x00FF00FF) - b_c2_RB) * v1) >> 8)) & 0x00FF00FF;
+				}
+
+				// final result
+
+				final int v1 = x_d & 0xFF;
+				final int c2_RB = c12 & 0x00FF00FF;
+
+				final int c2_AG_org = c12 & 0xFF00FF00;
+				dst[index1++] = (c2_AG_org + ((((c34 >>> 8) & 0x00FF00FF) - (c2_AG_org >>> 8)) * v1)) & 0xFF00FF00
+						| (c2_RB + ((((c34 & 0x00FF00FF) - c2_RB) * v1) >> 8)) & 0x00FF00FF;
+			}
+		}
 	}
 
 }

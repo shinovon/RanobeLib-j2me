@@ -940,46 +940,6 @@ public class Tidy {
 
     public Node parse(String s)
     {
-    	try {
-			return parse(new ByteArrayInputStream(s.getBytes("UTF-8")));
-		} catch (UnsupportedEncodingException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    	return null;
-    }
-
-    /**
-     * Parses InputStream in and returns the root Node.
-     * If out is non-null, pretty prints to OutputStream out.
-     */
-
-    public Node parse(InputStream in, OutputStream out)
-    {
-        Node document = null;
-
-        try
-        {
-          document = parse(in);
-        }
-        catch (IOException e) {}
-
-        return document;
-    }
-
-
-    /**
-     * Internal routine that actually does the parsing.  The caller
-     * can pass either an InputStream or file name.  If both are passed,
-     * the file name is preferred.
-     */
-
-    private Node parse(InputStream in)
-                  throws IOException
-    {
         Lexer lexer;
         Node document = null;
 
@@ -991,9 +951,9 @@ public class Tidy {
 
         
 
-        if (in != null)
+        if (s != null)
         {
-            lexer = new Lexer(new StreamInImpl(in,
+            lexer = new Lexer(new StreamInImpl(s,
                                                configuration.CharEncoding,
                                                configuration.tabsize),
                               configuration);
@@ -1013,16 +973,6 @@ public class Tidy {
                     return null;
                 }
             }
-
-            // Try to close the InputStream but only if if we created it.
-
-            {
-                try
-                {
-                    in.close();
-                }
-                catch (IOException e ) {}
-            }
         }
         return document;
     }
@@ -1032,19 +982,6 @@ public class Tidy {
     public dom.Document parseDOM(String s)
     {
         Node document = parse(s);
-        if (document != null)
-            return (dom.Document)document.getAdapter();
-        else
-            return null;
-    }
-    /**
-     * Parses InputStream in and returns a DOM Document node.
-     * If out is non-null, pretty prints to OutputStream out.
-     */
-
-    public dom.Document parseDOM(InputStream in, OutputStream out)
-    {
-        Node document = parse(in, out);
         if (document != null)
             return (dom.Document)document.getAdapter();
         else
