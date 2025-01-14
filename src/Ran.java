@@ -279,7 +279,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			Form f = listForm;
 			f.deleteAll();
 			try {
-				StringBuffer sb = new StringBuffer("manga?site_id[]=3&sort_by=last_chapter_at");
+				StringBuffer sb = new StringBuffer("manga?site_id%5B%5D=3&sort_by=last_chapter_at");
 				if (query != null) sb.append("&q=").append(url(query));
 				if (listPage > 0) sb.append("&page=").append(listPage);
 				
@@ -392,18 +392,21 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				Alert a = loadingAlert();
 				Gauge gauge = a.getIndicator();
 				display(a);
+				
 				a.setString("Скачивание..");
 				StringBuffer sb = new StringBuffer("manga/").append(mangaId)
 						.append("/chapter?").append(chapterParams);
 				JSONObject j = (JSONObject) api(sb.toString());
 
 				a.setString("Парсинг..");
+				
 				sb.setLength(0);
 				sb.append("Том ")
 				.append(j.getString("volume"))
 				.append(" Глава ")
 				.append(j.getString("number"));
 				f.setTitle(sb.toString());
+				
 				Object content = j.get("content");
 				if (content instanceof String) {
 					parseHtmlContent2(f, (String) content, gauge);
@@ -419,6 +422,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					}
 				}
 
+				a.setString("Загрузка формы..");
 				gauge.setMaxValue(Gauge.INDEFINITE);
 				gauge.setValue(Gauge.CONTINUOUS_RUNNING);
 				if (chapterForm == f)
