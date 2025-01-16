@@ -21,6 +21,7 @@ import javax.microedition.lcdui.ItemCommandListener;
 import javax.microedition.lcdui.Spacer;
 import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
+import javax.microedition.lcdui.Ticker;
 import javax.microedition.midlet.MIDlet;
 
 import cc.nnproject.json.JSONArray;
@@ -80,8 +81,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	
 	// settings
 	private static String proxyUrl = null;
-	private static boolean onlineResize = true;
+	private static boolean onlineResize = false;
 	private static boolean useProxy = true;
+	private static boolean showChapterWhileParsing = true;
 
 	protected void destroyApp(boolean u) {}
 
@@ -390,15 +392,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			Form f = chapterForm;
 			try {
 				Alert a = loadingAlert();
-				Gauge gauge = a.getIndicator();
+				Gauge gauge = null;
 				display(a);
 				
 				a.setString("Скачивание..");
 				StringBuffer sb = new StringBuffer("manga/").append(mangaId)
 						.append("/chapter?").append(chapterParams);
 				JSONObject j = (JSONObject) api(sb.toString());
-
-				a.setString("Парсинг..");
 				
 				sb.setLength(0);
 				sb.append("Том ")
@@ -406,6 +406,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				.append(" Глава ")
 				.append(j.getString("number"));
 				f.setTitle(sb.toString());
+
+				if (showChapterWhileParsing) {
+					f.setTicker(new Ticker("Парсинг.."));
+					display(f);
+				} else {
+					a.setString("Парсинг..");
+					gauge = a.getIndicator();
+				}
 				
 				Object content = j.get("content");
 				if (content instanceof String) {
@@ -422,9 +430,12 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					}
 				}
 
-				a.setString("Загрузка формы..");
-				gauge.setMaxValue(Gauge.INDEFINITE);
-				gauge.setValue(Gauge.CONTINUOUS_RUNNING);
+				if (gauge != null) {
+					a.setString("Загрузка формы..");
+					gauge.setMaxValue(Gauge.INDEFINITE);
+					gauge.setValue(Gauge.CONTINUOUS_RUNNING);
+				}
+				f.setTicker(null);
 				if (chapterForm == f)
 					display(f);
 			} catch (Exception e) {
@@ -583,7 +594,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				}
 			}
 			d = src.indexOf('<', o = e + 1);
-			if (d != -1) {
+			if (d != -1 && gauge != null) {
 				gauge.setValue((d*200)/len);
 			}
 		}
@@ -744,7 +755,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		int j;
 		while((j = in.read(buf, i, buf.length - i)) != -1) {
 			if ((i += j) >= buf.length) {
-				System.arraycopy(buf, 0, buf = new byte[i + 4096], 0, i);
+				System.arraycopy(buf, 0, buf = new byte[i + 16384], 0, i);
 			}
 		}
 		return new String(buf, 0, i, "UTF-8");
