@@ -23,6 +23,7 @@ import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.lcdui.Ticker;
 import javax.microedition.midlet.MIDlet;
+import javax.microedition.rms.RecordStore;
 
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
@@ -97,7 +98,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		display = Display.getDisplay(this);
 		
 		try {
-			RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, false);
+			RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, false);
 			JSONObject j = JSONObject.parseObject(new String(r.getRecord(1), "UTF-8"));
 			r.closeRecordStore();
 			
@@ -171,7 +172,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					j.put("showChapterWhileParsing", showChapterWhileParsing);
 					
 					byte[] b = j.toString().getBytes("UTF-8");
-					RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, true);
+					RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);
 					r.addRecord(b, 0, b.length);
 					r.closeRecordStore();
 				} catch (Exception e) {}
