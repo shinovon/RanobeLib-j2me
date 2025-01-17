@@ -456,17 +456,118 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				}
 				
 				Object content = j.get("content");
-				if (content instanceof String) {
-					parseHtmlContent2(f, (String) content, gauge);
-//					if (tidy == null) tidy = new Tidy();
-//					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
-				} else {
-					String type = ((JSONObject) content).getString("type");
-					if ("doc".equals(type)) {
-						parseJsonContent(f, ((JSONObject) content).getArray("content"), gauge);
+				parse: {
+					if (content instanceof String) {
+						String src = (String) content;
+						int d = src.indexOf('<');
+						int len = src.length();
+						if (len == 0) break parse;
+						int o = 0;
+						StringItem s;
+						sb.setLength(0);
+						int fstyle = Font.STYLE_PLAIN;
+						int fsize = Font.SIZE_MEDIUM;
+						
+						if (gauge != null) gauge.setMaxValue(202);
+						char[] chars = src.toCharArray();
+						while (d != -1 || o < len) {
+							if (o != d) {
+								if (d == -1) d = len;
+								char l = 0;
+								for (int i = o; i < d; ++i) {
+									char c = chars[i];
+									if (c == '\r' || c == '\n' || c == '\t') {
+										c = ' ';
+									} else if (c == '&') {
+										char t;
+										if ((t = chars[++i]) == 'n') { // nbsp
+											if (chars[i += 4] == ';') {
+												c = ' ';
+											} else i -= 5;
+										} else if (t == 'l') { // lt
+											if (chars[i += 2] == ';') {
+												c = '<';
+											} else i -= 3;
+										} else if (t == 'g') { // gt
+											if (chars[i += 2] == ';') {
+												c = '>';
+											} else i -= 3;
+											c = '>';
+										} else i--;
+									}
+									if (c == ' ' && l == ' ') {
+										continue;
+									}
+									l = c;
+									sb.append(c);
+								}
+								if (sb.length() != 0) {
+									s = new StringItem(null, sb.toString());
+									s.setFont(getFont(0, fstyle, fsize));
+									f.append(s);
+	//								if (chars[d - 1] == ' ')
+	//									f.append(new Spacer(spW, spH));
+									
+									sb.setLength(0);
+								}
+								if (d == len) break;
+							}
+							int e = src.indexOf('>', d);
+							if (chars[d + 1] == '/') {
+								if ((chars[d + 2] == 'b' && chars[d + 3] == '>')
+										|| (chars[d + 2] == 's' && chars[d + 3] == 't')) {
+									fstyle &= ~Font.STYLE_BOLD;
+								} else if (chars[d + 2] == 'h') {
+									fsize = Font.SIZE_MEDIUM;
+									if (chars[d + 3] == '1') fstyle &= ~Font.STYLE_BOLD;
+								} else if ((chars[d + 2] == 'e' && chars[d + 3] == 'm')
+									|| (chars[d + 2] == 'i' && chars[d + 3] == '>')) {
+									fstyle &= ~Font.STYLE_ITALIC;
+								} else if (chars[d + 2] == 's' && chars[d + 3] == 'm') {
+									fsize = Font.SIZE_MEDIUM;
+								} else if (chars[d + 2] == 's' && chars[d + 3] == 'u') {
+									fstyle &= ~Font.STYLE_UNDERLINED;
+								} else if (chars[d + 2] == 'p') {
+									sb.append('\n');
+								}
+							} else {
+								if ((chars[d + 1] == 'b' && chars[d + 2] == '>')
+										|| (chars[d + 1] == 's' && chars[d + 2] == 't')) {
+									fstyle |= Font.STYLE_BOLD;
+								} else if (chars[d + 1] == 'h') {
+									fsize = Font.SIZE_LARGE;
+									if (chars[d + 2] == '1') fstyle |= Font.STYLE_BOLD;
+								} else if ((chars[d + 1] == 'e' && chars[d + 2] == 'm')
+										|| (chars[d + 1] == 'i' && chars[d + 2] == '>')) {
+									fstyle |= Font.STYLE_ITALIC;
+								} else if (chars[d + 1] == 's' && chars[d + 2] == 'm') {
+									fsize = Font.SIZE_SMALL;
+								} else if (chars[d + 1] == 's' && chars[d + 2] == 'u') {
+									fstyle |= Font.STYLE_UNDERLINED;
+								} else if (chars[d + 1] == 'p'
+										|| (chars[d + 1] == 'b' && chars[d + 2] == 'r')) {
+									sb.append('\n');
+								} else if (chars[d + 1] == 'i' && chars[d + 2] == 'm') {
+									// TODO
+									f.append(new ImageItem("Картинка", null, 0, null));
+								}
+							}
+							d = src.indexOf('<', o = e + 1);
+							if (d != -1 && gauge != null) {
+								gauge.setValue((d*200)/len);
+							}
+						}
+						chars = null;
+	//					if (tidy == null) tidy = new Tidy();
+	//					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
 					} else {
-						// unknown
-						f.append(content.toString());
+						String type = ((JSONObject) content).getString("type");
+						if ("doc".equals(type)) {
+							parseJsonContent(f, ((JSONObject) content).getArray("content"), gauge);
+						} else {
+							// unknown
+							f.append(content.toString());
+						}
 					}
 				}
 
@@ -520,7 +621,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 							style |= Font.STYLE_BOLD;
 						}
 					}
-					// TODO marks:[{type:asd}] bold,italic
 				}
 				s.setFont(getFont(0, style, Font.SIZE_MEDIUM));
 				f.append(s);
@@ -536,117 +636,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		}
 	}
 	
-	private static void parseHtmlContent2(Form f, String src, Gauge gauge) {
-		int d = src.indexOf('<');
-		int len = src.length();
-		if (len == 0) return;
-		int o = 0;
-		StringItem s;
-		StringBuffer sb = new StringBuffer();
-		int fstyle = Font.STYLE_PLAIN;
-		int fsize = Font.SIZE_MEDIUM;
-		String tag;
-		int spW = medPlainFont.charWidth(' ') + 1, spH = medPlainFont.getHeight();
-		
-		System.out.println("len: " + len);
-		gauge.setMaxValue(202);
-		char[] chars = src.toCharArray();
-		while (d != -1) {
-			if (o != d) {
-				char l = 0;
-				for (int i = o; i < d; ++i) {
-					char c = chars[i];
-					if (c == '\r' || c == '\n' || c == '\t') {
-						c = ' ';
-					} else if (c == '&') {
-						char t;
-						if ((t = chars[++i]) == 'n') { // nbsp
-							if (chars[i += 4] == ';') {
-								c = ' ';
-							} else i -= 5;
-						} else if (t == 'l') { // lt
-							if (chars[i += 2] == ';') {
-								c = '<';
-							} else i -= 3;
-						} else if (t == 'g') { // gt
-							if (chars[i += 2] == ';') {
-								c = '>';
-							} else i -= 3;
-							c = '>';
-						} else i--;
-					}
-					if (c == ' ' && l == ' ') {
-						continue;
-					}
-					l = c;
-					sb.append(c);
-				}
-				if (sb.length() != 0) {
-					s = new StringItem(null, sb.toString());
-					s.setFont(getFont(0, fstyle, fsize));
-					f.append(s);
-//					if (chars[d - 1] == ' ')
-//						f.append(new Spacer(spW, spH));
-					
-					sb.setLength(0);
-				}
-			}
-			int e = src.indexOf('>', d);
-			if (chars[d + 1] == '/') {
-				tag = src.substring(d + 2, e);
-				if ("b".equals(tag) || "strong".equals(tag)) {
-					fstyle &= ~Font.STYLE_BOLD;
-				} else if ("h1".equals(tag)) {
-					fsize = Font.SIZE_MEDIUM;
-					fstyle &= ~Font.STYLE_BOLD;
-				} else if ("h2".equals(tag)) {
-					fsize = Font.SIZE_MEDIUM;
-				} else if ("em".equals(tag) || "i".equals(tag)) {
-					fstyle &= ~Font.STYLE_ITALIC;
-				} else if ("small".equals(tag)) {
-					fsize = Font.SIZE_MEDIUM;
-				} else if ("sub".equals(tag)) {
-					fstyle &= ~Font.STYLE_UNDERLINED;
-				} else if ("p".equals(tag)) {
-					sb.append("\n");
-				}
-			} else {
-				tag = src.substring(d + 1, e);
-				if ((chars[d + 1] == 'b' && chars[d + 2] == '>')
-						|| (chars[d + 1] == 's' && chars[d + 2] == 't')) {
-					fstyle |= Font.STYLE_BOLD;
-				} else if (chars[d + 1] == 'h') {
-					fsize = Font.SIZE_LARGE;
-					if (chars[d + 2] == '1') fstyle |= Font.STYLE_BOLD;
-				} else if ((chars[d + 1] == 'e' && chars[d + 2] == 'm')
-						|| (chars[d + 1] == 'i' && chars[d + 2] == '>')) {
-					fstyle |= Font.STYLE_ITALIC;
-				} else if (chars[d + 1] == 's' && chars[d + 2] == 'm') {
-					fsize = Font.SIZE_SMALL;
-				} else if (chars[d + 1] == 's' && chars[d + 2] == 'u') {
-					fstyle |= Font.STYLE_UNDERLINED;
-				} else if (chars[d + 1] == 'p'
-						|| (chars[d + 1] == 'b' && chars[d + 2] == 'r')) {
-					sb.append("\n");
-				} else if (chars[d + 1] == 'i' && chars[d + 2] == 'm') {
-					// TODO
-					f.append(new ImageItem("Картинка", null, 0, null));
-				}
-			}
-			d = src.indexOf('<', o = e + 1);
-			if (d != -1 && gauge != null) {
-				gauge.setValue((d*200)/len);
-			}
-		}
-		chars = null;
-		
-		if (o < len) {
-			s = new StringItem(null, src.substring(o + 1));
-			s.setFont(medPlainFont);
-			f.append(s);
-		}
-	}
-
 	void start(int i) {
 		try {
 			synchronized(this) {
