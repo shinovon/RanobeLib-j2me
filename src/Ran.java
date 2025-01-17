@@ -64,6 +64,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static Form listForm;
 	private static Form mangaForm;
 	private static Form chapterForm;
+	private static Form settingsForm;
 	
 	private static TextField searchField;
 	
@@ -94,6 +95,17 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		midlet = this;
 		
 		display = Display.getDisplay(this);
+		
+		try {
+			RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, false);
+			JSONObject j = JSONObject.parseObject(new String(r.getRecord(1), "UTF-8"));
+			r.closeRecordStore();
+			
+			proxyUrl = j.getString("proxy", proxyUrl);
+			onlineResize = j.getBoolean("onlineResize", onlineResize);
+			useProxy = j.getBoolean("useProxy", useProxy);
+			showChapterWhileParsing = j.getBoolean("showChapterWhileParsing", showChapterWhileParsing);
+		} catch (Exception e) {}
 
 		exitCmd = new Command("Выход", Command.EXIT, 2);
 		searchCmd = new Command("Поиск", Command.ITEM, 1);
@@ -106,7 +118,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		
 		Form f = new Form("RanobeLib");
 		f.addCommand(exitCmd);
-//		f.addCommand(settingsCmd);
+		f.addCommand(settingsCmd);
 		f.setCommandListener(this);
 		
 		searchField = new TextField("", "", 100, TextField.ANY);
@@ -146,6 +158,23 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			}
 			if (d == listForm) {
 				listForm = null;
+			} else if (d == settingsForm) {
+				// TODO
+				try {
+					RecordStore.deleteRecordStore(SETTINGS_RMS);
+				} catch (Exception e) {}
+				try {
+					JSONObject j = new JSONObject();
+					j.put("proxy", proxyUrl);
+					j.put("onlineResize", onlineResize);
+					j.put("useProxy", useProxy);
+					j.put("showChapterWhileParsing", showChapterWhileParsing);
+					
+					byte[] b = j.toString().getBytes("UTF-8");
+					RecordStore r = RecordStore.openRecordStore(SETTINGS_RECORDNAME, true);
+					r.addRecord(b, 0, b.length);
+					r.closeRecordStore();
+				} catch (Exception e) {}
 			}
 			display(mainForm);
 			return;
@@ -180,6 +209,16 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			
 			display(loadingAlert(), listForm);
 			start(RUN_LIST);
+			return;
+		}
+		if (c == settingsCmd) {
+			if (settingsForm == null) {
+				Form f = settingsForm = new Form("Настройки");
+				f.addCommand(backCmd);
+				f.setCommandListener(this);
+				// TODO
+			}
+			display(settingsForm);
 			return;
 		}
 		if (c == exitCmd) {
