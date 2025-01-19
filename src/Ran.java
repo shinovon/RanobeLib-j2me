@@ -20,10 +20,13 @@ import javax.microedition.lcdui.ImageItem;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
 import javax.microedition.lcdui.StringItem;
+import javax.microedition.lcdui.TextBox;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.lcdui.Ticker;
 import javax.microedition.midlet.MIDlet;
 import javax.microedition.rms.RecordStore;
+
+import com.nokia.mid.ui.DeviceControl;
 
 import cc.nnproject.json.JSONArray;
 import cc.nnproject.json.JSONObject;
@@ -61,6 +64,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static Command mangaItemCmd;
 	private static Command chapterItemCmd;
 	
+	private static Command brightnessCmd;
+
+	private static Command okCmd;
+	private static Command cancelCmd;
+	
 	private static Form mainForm;
 	private static Form listForm;
 	private static Form mangaForm;
@@ -72,7 +80,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static TextField proxyField;
 	private static ChoiceGroup proxyChoice;
 	private static ChoiceGroup coversChoice;
-	private static ChoiceGroup chapterSetChoice;
+	private static ChoiceGroup chapterSetsChoice;
+	private static ChoiceGroup fontSizeChoice;
 	
 	private static int run;
 	private static boolean running;
@@ -94,9 +103,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static int thumbLoading;
 	private static boolean showChapterWhileParsing = true;
 	private static boolean noFormat;
-	private static boolean symbianJrt;
 	private static boolean loadChapterImages;
-	private static boolean loadCovers;
+	private static boolean loadCovers = true;
+	private static int fontSize = 1;
+	private static int brightness = -1;
+	
+	private static boolean symbianJrt;
+	private static boolean hasNokiaUi;
 
 	protected void destroyApp(boolean u) {}
 
@@ -115,6 +128,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		symbianJrt = p != null && p.indexOf("platform=S60") != -1;
 		
 		try {
+			Class.forName("com.nokia.mid.ui.DeviceControl");
+			hasNokiaUi = true;
+		} catch (Throwable e) {}
+		
+		try {
 			RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, false);
 			JSONObject j = JSONObject.parseObject(new String(r.getRecord(1), "UTF-8"));
 			r.closeRecordStore();
@@ -127,6 +145,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			noFormat = j.getBoolean("noFormat", noFormat);
 			loadChapterImages = j.getBoolean("loadChapterImages", loadChapterImages);
 			loadCovers = j.getBoolean("loadCovers", loadCovers);
+			fontSize = j.getInt("fontSize", fontSize);
+			brightness = j.getInt("brightness", brightness);
 		} catch (Exception e) {}
 
 		exitCmd = new Command("Выход", Command.EXIT, 2);
@@ -137,6 +157,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		mangaItemCmd = new Command("Открыть", Command.ITEM, 1);
 		chapterItemCmd = new Command("Открыть", Command.ITEM, 1);
 		latestCmd = new Command("Последнее", Command.ITEM, 1);
+		
+		brightnessCmd = new Command("Яркость", Command.SCREEN, 2);
+		
+		okCmd = new Command("Ок", Command.OK, 1);
+		cancelCmd = new Command("Отмена", Command.CANCEL, 2);
 		
 		f = new Form("RanobeLib");
 		f.addCommand(exitCmd);
@@ -167,6 +192,10 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		if (thumbLoading != 1 && (symbianJrt || thumbLoading == 2)) {
 			start(RUN_THUMBNAILS);
 		}
+		
+		if (hasNokiaUi && brightness != -1) {
+			setLight(brightness);
+		}
 	}
 
 	public void commandAction(Command c, Displayable d) {
@@ -190,30 +219,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				useProxy = proxyChoice.isSelected(0);
 				onlineResize = proxyChoice.isSelected(1);
 				thumbLoading = coversChoice.getSelectedIndex();
-				showChapterWhileParsing = chapterSetChoice.isSelected(0);
-				noFormat = chapterSetChoice.isSelected(1);
-				loadChapterImages = chapterSetChoice.isSelected(2);
-				loadCovers = chapterSetChoice.isSelected(3);
+				showChapterWhileParsing = chapterSetsChoice.isSelected(0);
+				noFormat = chapterSetsChoice.isSelected(1);
+				loadChapterImages = chapterSetsChoice.isSelected(2);
+				loadCovers = chapterSetsChoice.isSelected(3);
+				fontSize = fontSizeChoice.getSelectedIndex();
 				
-				try {
-					RecordStore.deleteRecordStore(SETTINGS_RMS);
-				} catch (Exception e) {}
-				try {
-					JSONObject j = new JSONObject();
-					j.put("proxy", proxyUrl);
-					j.put("useProxy", useProxy);
-					j.put("onlineResize", onlineResize);
-					j.put("thumbLoading", thumbLoading);
-					j.put("showChapterWhileParsing", showChapterWhileParsing);
-					j.put("noFormat", noFormat);
-					j.put("loadChapterImages", loadChapterImages);
-					j.put("loadCovers", loadCovers);
-					
-					byte[] b = j.toString().getBytes("UTF-8");
-					RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);
-					r.addRecord(b, 0, b.length);
-					r.closeRecordStore();
-				} catch (Exception e) {}
+				saveSettings();
 			}
 			display(mainForm, true);
 			return;
@@ -273,19 +285,54 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				coversChoice.setSelectedIndex(thumbLoading, true);
 				f.append(coversChoice);
 				
-				chapterSetChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
+				chapterSetsChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
 						"Показ во время парсинга",
 						"Отключить форматирование",
 						"Загружать иллюстрации",
 						"Загружать обложки"
 				}, null);
-				chapterSetChoice.setSelectedIndex(0, showChapterWhileParsing);
-				chapterSetChoice.setSelectedIndex(1, noFormat);
-				chapterSetChoice.setSelectedIndex(2, loadChapterImages);
-				chapterSetChoice.setSelectedIndex(3, loadCovers);
-				f.append(chapterSetChoice);
+				chapterSetsChoice.setSelectedIndex(0, showChapterWhileParsing);
+				chapterSetsChoice.setSelectedIndex(1, noFormat);
+				chapterSetsChoice.setSelectedIndex(2, loadChapterImages);
+				chapterSetsChoice.setSelectedIndex(3, loadCovers);
+				f.append(chapterSetsChoice);
+				
+				fontSizeChoice = new ChoiceGroup("Размер шрифта", ChoiceGroup.POPUP, new String[] {
+						"Мелкий",
+						"Обычный",
+						"Крупный"
+				}, null);
+				fontSizeChoice.setSelectedIndex(fontSize, true);
+				f.append(fontSizeChoice);
 			}
 			display(settingsForm);
+			return;
+		}
+		if (c == cancelCmd) {
+			display(null, true);
+			return;
+		}
+		if (c == okCmd && d instanceof TextBox) { // set brightness
+			String s = ((TextBox) d).getString();
+			try {
+				int value = Integer.parseInt(s);
+				if (value < 0 || value > 100) throw new Exception();
+				setLight(brightness = value);
+				saveSettings();
+				display(null, true);
+				return;
+			} catch (Exception e) {
+				c = brightnessCmd;
+			}
+		}
+		if (c == brightnessCmd) {
+			if (!hasNokiaUi) return;
+			
+			TextBox t = new TextBox("Яркость (0-100)", brightness != -1 ? Integer.toString(brightness) : "100", 3, TextField.NUMERIC);
+			t.addCommand(okCmd);
+			t.addCommand(cancelCmd);
+			t.setCommandListener(this);
+			display(t);
 			return;
 		}
 		if (c == exitCmd) {
@@ -317,6 +364,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			
 			Form f = new Form(s);
 			f.addCommand(backCmd);
+			if (hasNokiaUi) f.addCommand(brightnessCmd);
 			f.setCommandListener(this);
 
 			chapterParams = s;
@@ -813,8 +861,38 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		}
 	}
 	
+	private void saveSettings() {
+		try {
+			RecordStore.deleteRecordStore(SETTINGS_RMS);
+		} catch (Exception e) {}
+		try {
+			JSONObject j = new JSONObject();
+			j.put("proxy", proxyUrl);
+			j.put("useProxy", useProxy);
+			j.put("onlineResize", onlineResize);
+			j.put("thumbLoading", thumbLoading);
+			j.put("showChapterWhileParsing", showChapterWhileParsing);
+			j.put("noFormat", noFormat);
+			j.put("loadChapterImages", loadChapterImages);
+			j.put("loadCovers", loadCovers);
+			j.put("fontSize", fontSize);
+			j.put("brightness", brightness);
+			
+			byte[] b = j.toString().getBytes("UTF-8");
+			RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);
+			r.addRecord(b, 0, b.length);
+			r.closeRecordStore();
+		} catch (Exception e) {}
+	}
+	
 	private static int getHeight() {
 		return mainForm.getHeight();
+	}
+	
+	private static void setLight(int value) {
+		try {
+			DeviceControl.setLights(0, value);
+		} catch (Throwable e) {}
 	}
 	
 	static void display(Alert a, Displayable d) {
@@ -834,8 +912,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			display.setCurrent((Alert) d, mainForm);
 			return;
 		}
-		if (d == null)
-			d = mainForm;
+		if (d == null) {
+			d = chapterForm != null ? chapterForm : mainForm;
+		}
 		Displayable p = display.getCurrent();
 		display.setCurrent(d);
 		// TODO resume thumbnail loading
@@ -872,38 +951,45 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		return a;
 	}
 
-	private static Font getFont(int i, int j, int k) {
-		if (i == 0) {
-			if (k == Font.SIZE_SMALL) {
-				if (j == Font.STYLE_BOLD) {
+	private static Font getFont(int face, int style, int size) {
+		if (face == 0) {
+			int setSize = fontSize;
+			if (setSize == 0) {
+				size = size == Font.SIZE_LARGE ? Font.SIZE_MEDIUM : Font.SIZE_SMALL;
+			} else if (setSize == 2) {
+				size = size == Font.SIZE_SMALL ? Font.SIZE_MEDIUM : Font.SIZE_LARGE;
+			}
+			
+			if (size == Font.SIZE_SMALL) {
+				if (style == Font.STYLE_BOLD) {
 					return smallBoldFont;
 				}
-				if (j == Font.STYLE_ITALIC) {
+				if (style == Font.STYLE_ITALIC) {
 					return smallItalicFont;
 				}
-				if (j == Font.STYLE_PLAIN) {
+				if (style == Font.STYLE_PLAIN) {
 					return smallPlainFont;
 				}
 			}
-			if (k == Font.SIZE_MEDIUM) {
-				if (j == Font.STYLE_BOLD) {
+			if (size == Font.SIZE_MEDIUM) {
+				if (style == Font.STYLE_BOLD) {
 					return medBoldFont;
 				}
-				if (j == Font.STYLE_ITALIC) {
+				if (style == Font.STYLE_ITALIC) {
 					return medItalicFont;
 				}
-				if (j == (Font.STYLE_BOLD | Font.STYLE_ITALIC)) {
+				if (style == (Font.STYLE_BOLD | Font.STYLE_ITALIC)) {
 					return medItalicBoldFont;
 				}
-				if (j == Font.STYLE_PLAIN) {
+				if (style == Font.STYLE_PLAIN) {
 					return medPlainFont;
 				}
 			}
-			if (k == Font.SIZE_LARGE) {
+			if (size == Font.SIZE_LARGE) {
 				return largePlainFont;
 			}
 		}
-		return Font.getFont(i, j, k);
+		return Font.getFont(face, style, size);
 	}
 	
 	private static Object api(String url) throws IOException {
