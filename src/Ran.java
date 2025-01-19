@@ -110,9 +110,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			r.closeRecordStore();
 			
 			proxyUrl = j.getString("proxy", proxyUrl);
-			onlineResize = j.getBoolean("onlineResize", onlineResize);
 			useProxy = j.getBoolean("useProxy", useProxy);
+			onlineResize = j.getBoolean("onlineResize", onlineResize);
+			coverLoading = j.getInt("coverLoading", coverLoading);
 			showChapterWhileParsing = j.getBoolean("showChapterWhileParsing", showChapterWhileParsing);
+			noFormat = j.getBoolean("noFormat", noFormat);
 		} catch (Exception e) {}
 
 		exitCmd = new Command("Выход", Command.EXIT, 2);
@@ -184,8 +186,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				try {
 					JSONObject j = new JSONObject();
 					j.put("proxy", proxyUrl);
-					j.put("onlineResize", onlineResize);
 					j.put("useProxy", useProxy);
+					j.put("onlineResize", onlineResize);
+					j.put("coverLoading", coverLoading);
 					j.put("showChapterWhileParsing", showChapterWhileParsing);
 					j.put("noFormat", noFormat);
 					
