@@ -88,14 +88,15 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static Vector thumbsToLoad = new Vector();
 	
 	// settings
-	private static String proxyUrl = null;
-	private static boolean onlineResize = false;
+	private static String proxyUrl = "http://nnp.nnchan.ru/hproxy.php?";
+	private static boolean onlineResize = true;
 	private static boolean useProxy = false;
-	private static int coverLoading;
+	private static int thumbLoading;
 	private static boolean showChapterWhileParsing = true;
 	private static boolean noFormat;
 	private static boolean symbianJrt;
 	private static boolean loadChapterImages;
+	private static boolean loadCovers;
 
 	protected void destroyApp(boolean u) {}
 
@@ -121,10 +122,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			proxyUrl = j.getString("proxy", proxyUrl);
 			useProxy = j.getBoolean("useProxy", useProxy);
 			onlineResize = j.getBoolean("onlineResize", onlineResize);
-			coverLoading = j.getInt("coverLoading", coverLoading);
+			thumbLoading = j.getInt("thumbLoading", thumbLoading);
 			showChapterWhileParsing = j.getBoolean("showChapterWhileParsing", showChapterWhileParsing);
 			noFormat = j.getBoolean("noFormat", noFormat);
 			loadChapterImages = j.getBoolean("loadChapterImages", loadChapterImages);
+			loadCovers = j.getBoolean("loadCovers", loadCovers);
 		} catch (Exception e) {}
 
 		exitCmd = new Command("Выход", Command.EXIT, 2);
@@ -162,7 +164,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 
 		start(RUN_THUMBNAILS);
 		
-		if (coverLoading != 1 && (symbianJrt || coverLoading == 2)) {
+		if (thumbLoading != 1 && (symbianJrt || thumbLoading == 2)) {
 			start(RUN_THUMBNAILS);
 		}
 	}
@@ -187,10 +189,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				proxyUrl = proxyField.getString();
 				useProxy = proxyChoice.isSelected(0);
 				onlineResize = proxyChoice.isSelected(1);
-				coverLoading = coversChoice.getSelectedIndex();
+				thumbLoading = coversChoice.getSelectedIndex();
 				showChapterWhileParsing = chapterSetChoice.isSelected(0);
 				noFormat = chapterSetChoice.isSelected(1);
 				loadChapterImages = chapterSetChoice.isSelected(2);
+				loadCovers = chapterSetChoice.isSelected(3);
 				
 				try {
 					RecordStore.deleteRecordStore(SETTINGS_RMS);
@@ -200,10 +203,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					j.put("proxy", proxyUrl);
 					j.put("useProxy", useProxy);
 					j.put("onlineResize", onlineResize);
-					j.put("coverLoading", coverLoading);
+					j.put("thumbLoading", thumbLoading);
 					j.put("showChapterWhileParsing", showChapterWhileParsing);
 					j.put("noFormat", noFormat);
 					j.put("loadChapterImages", loadChapterImages);
+					j.put("loadCovers", loadCovers);
 					
 					byte[] b = j.toString().getBytes("UTF-8");
 					RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);
@@ -263,20 +267,22 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				proxyChoice.setSelectedIndex(1, onlineResize);
 				f.append(proxyChoice);
 				
-				coversChoice = new ChoiceGroup("Загрузка обложек", ChoiceGroup.POPUP, new String[] {
+				coversChoice = new ChoiceGroup("Загрузка изображений", ChoiceGroup.POPUP, new String[] {
 						"Авто", "1 поток", "Мультипоток", "Выкл."
 				}, null);
-				coversChoice.setSelectedIndex(coverLoading, true);
+				coversChoice.setSelectedIndex(thumbLoading, true);
 				f.append(coversChoice);
 				
 				chapterSetChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
 						"Показ во время парсинга",
 						"Отключить форматирование",
-						"Загружать иллюстрации"
+						"Загружать иллюстрации",
+						"Загружать обложки"
 				}, null);
 				chapterSetChoice.setSelectedIndex(0, showChapterWhileParsing);
 				chapterSetChoice.setSelectedIndex(1, noFormat);
 				chapterSetChoice.setSelectedIndex(2, loadChapterImages);
+				chapterSetChoice.setSelectedIndex(3, loadCovers);
 				f.append(chapterSetChoice);
 			}
 			display(settingsForm);
@@ -406,7 +412,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					item.setDefaultCommand(mangaItemCmd);
 					item.setItemCommandListener(this);
 					
-					if (coverLoading != 3) {
+					if (loadCovers) {
 						JSONObject cover = v.getObject("cover");
 						String url = cover.getString("default", cover.getString("thumbnail"));
 						scheduleThumb(item, url);
@@ -800,7 +806,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 	
 	private static void scheduleThumb(ImageItem item, String url) {
-		if (coverLoading == 3 || item == null || url == null) return;
+		if (thumbLoading == 3 || item == null || url == null) return;
 		synchronized (thumbLoadLock) {
 			thumbsToLoad.addElement(new Object[] { url, item });
 			thumbLoadLock.notifyAll();
@@ -1004,7 +1010,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static String proxyUrl(String url) {
 		System.out.println(url);
 		if (url == null
-				|| (!useProxy && (url.indexOf(";tw=") == -1 || !onlineResize))
+				|| (!useProxy && (url.indexOf(";t") == -1 || !onlineResize))
 				|| proxyUrl == null || proxyUrl.length() == 0 || "https://".equals(proxyUrl)) {
 			return url;
 		}
