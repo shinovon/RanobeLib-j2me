@@ -82,6 +82,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static int listPage;
 	private static Hashtable chapterItems;
 	private static String chapterParams;
+	private static JSONArray chapterAttachments;
 	
 	private static Object thumbLoadLock = new Object();
 	private static Vector thumbsToLoad = new Vector();
@@ -93,6 +94,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static int coverLoading;
 	private static boolean showChapterWhileParsing = true;
 	private static boolean noFormat;
+	private static boolean symbianJrt;
+	private static boolean loadChapterImages;
 
 	protected void destroyApp(boolean u) {}
 
@@ -103,6 +106,12 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		midlet = this;
 		
 		display = Display.getDisplay(this);
+		
+		Form f = new Form("RanobeLib");
+		display.setCurrent(f);
+		
+		String p = System.getProperty("microedition.platform");
+		symbianJrt = p != null && p.indexOf("platform=S60") != -1;
 		
 		try {
 			RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, false);
@@ -115,6 +124,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			coverLoading = j.getInt("coverLoading", coverLoading);
 			showChapterWhileParsing = j.getBoolean("showChapterWhileParsing", showChapterWhileParsing);
 			noFormat = j.getBoolean("noFormat", noFormat);
+			loadChapterImages = j.getBoolean("loadChapterImages", loadChapterImages);
 		} catch (Exception e) {}
 
 		exitCmd = new Command("Выход", Command.EXIT, 2);
@@ -126,7 +136,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		chapterItemCmd = new Command("Открыть", Command.ITEM, 1);
 		latestCmd = new Command("Последнее", Command.ITEM, 1);
 		
-		Form f = new Form("RanobeLib");
+		f = new Form("RanobeLib");
 		f.addCommand(exitCmd);
 		f.addCommand(settingsCmd);
 		f.setCommandListener(this);
@@ -152,7 +162,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 
 		start(RUN_THUMBNAILS);
 		
-		if (coverLoading != 1 && (coverLoading == 2)) {
+		if (coverLoading != 1 && (symbianJrt || coverLoading == 2)) {
 			start(RUN_THUMBNAILS);
 		}
 	}
@@ -161,12 +171,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		if (c == backCmd) {
 			thumbsToLoad.removeAllElements();
 			if (d == chapterForm) {
-				display(mangaForm);
+				display(mangaForm, true);
 				chapterForm = null;
+				chapterAttachments = null;
 				return;
 			}
 			if (d == mangaForm) {
-				display(listForm != null ? listForm : mainForm);
+				display(listForm != null ? listForm : mainForm, true);
 				mangaForm = null;
 				return;
 			}
@@ -179,6 +190,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				coverLoading = coversChoice.getSelectedIndex();
 				showChapterWhileParsing = chapterSetChoice.isSelected(0);
 				noFormat = chapterSetChoice.isSelected(1);
+				loadChapterImages = chapterSetChoice.isSelected(2);
 				
 				try {
 					RecordStore.deleteRecordStore(SETTINGS_RMS);
@@ -191,6 +203,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					j.put("coverLoading", coverLoading);
 					j.put("showChapterWhileParsing", showChapterWhileParsing);
 					j.put("noFormat", noFormat);
+					j.put("loadChapterImages", loadChapterImages);
 					
 					byte[] b = j.toString().getBytes("UTF-8");
 					RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);
@@ -198,7 +211,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					r.closeRecordStore();
 				} catch (Exception e) {}
 			}
-			display(mainForm);
+			display(mainForm, true);
 			return;
 		}
 		if (c == latestCmd) {
@@ -258,10 +271,12 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				
 				chapterSetChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
 						"Показ во время парсинга",
-						"Отключить форматирование"
+						"Отключить форматирование",
+						"Загружать иллюстрации"
 				}, null);
 				chapterSetChoice.setSelectedIndex(0, showChapterWhileParsing);
 				chapterSetChoice.setSelectedIndex(1, noFormat);
+				chapterSetChoice.setSelectedIndex(2, loadChapterImages);
 				f.append(chapterSetChoice);
 			}
 			display(settingsForm);
@@ -343,6 +358,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						ImageItem item = (ImageItem) o[1];
 						
 						if (url == null) continue;
+						if (url.startsWith("/")) {
+							url = "https://ranobelib.me".concat(url);
+						}
 						
 						try {
 							Image img;
@@ -390,11 +408,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					
 					if (coverLoading != 3) {
 						JSONObject cover = v.getObject("cover");
-						
-						synchronized (thumbLoadLock) {
-							thumbsToLoad.addElement(new Object[] { cover.getString("default", cover.getString("thumbnail")), item });
-							thumbLoadLock.notifyAll();
-						}
+						String url = cover.getString("default", cover.getString("thumbnail"));
+						scheduleThumb(item, url);
 					}
 					
 					f.append(item);
@@ -506,6 +521,10 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					a.setString("Парсинг..");
 					gauge = a.getIndicator();
 				}
+
+				sb.setLength(0);
+				
+				chapterAttachments = j.getArray("attachments", null);
 				
 				Object content = j.get("content");
 				parse: {
@@ -517,7 +536,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						int len = src.length();
 						if (len == 0) break parse;
 						int o = 0;
-						sb.setLength(0);
 						int fstyle = Font.STYLE_PLAIN;
 						int fsize = Font.SIZE_MEDIUM;
 						
@@ -559,8 +577,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 									s = new StringItem(null, sb.toString());
 									s.setFont(getFont(0, fstyle, fsize));
 									f.append(s);
-	//								if (chars[d - 1] == ' ')
-	//									f.append(new Spacer(spW, spH));
 									
 									sb.setLength(0);
 								}
@@ -622,8 +638,36 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 										// <p> or <br>
 										sb.append('\n');
 									} else if (chars[d + 1] == 'i' && chars[d + 2] == 'm') {
-										// <img> TODO
-										f.append(new ImageItem("Картинка", null, 0, null));
+										// <img>
+										
+										ImageItem img = new ImageItem("Картинка", null, 0, null);
+										if (loadChapterImages) {
+											img.setLabel("");
+											String url = src.substring(d + 4, e);
+											int i;
+											if ((i = url.indexOf("src=")) != -1) {
+												url = url.substring(i + 4);
+												if ((i = url.indexOf(' ')) != -1) {
+													url = url.substring(0, i);
+												}
+												
+												if (url.charAt(0) == '"')
+													url = url.substring(1, url.length() - 1);
+												
+												img.setAltText(url);
+												scheduleThumb(img, url);
+											}
+										}
+										
+										if (sb.length() != 0) {
+											s = new StringItem(null, sb.toString());
+											s.setFont(getFont(0, fstyle, fsize));
+											f.append(s);
+											
+											sb.setLength(0);
+										}
+										
+										f.append(img);
 									}
 									
 									// TODO: <li> ?
@@ -645,7 +689,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 							f.append(content.toString());
 						}
 					}
-					if (!noFormat) {
+					if (noFormat) {
 						s = new StringItem(null, sb.toString());
 						s.setFont(getFont(0, Font.STYLE_PLAIN, Font.SIZE_MEDIUM));
 						f.append(s);
@@ -722,10 +766,24 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			} else if ("listItem".equals(type)) {
 				// TODO
 				if (e.has("content")) parseJsonContent(f, e.getArray("content"), null, sb);
-			} else if (sb != null && "image".equals(type)) {
-				// TODO attrs:[images:[{image:id}]]
-//				String url = e.getArray("attrs").getObject(0).getArray("images").getObject(0).getString("image");
-				f.append(new ImageItem("Картинка", null, 0, null));
+			} else if (sb == null && "image".equals(type)) {
+				ImageItem img = new ImageItem("Картинка", null, 0, null);
+				if (loadChapterImages && chapterAttachments != null) {
+					JSONObject attrs = e.getObject("attrs");
+					String id = attrs.getArray("images").getObject(0).getString("image");
+					img.setLabel(attrs.getString("description", ""));
+					img.setAltText(id);
+					int attsSize = chapterAttachments.size();
+					for (int n = 0; n < attsSize; ++n) {
+						JSONObject attachment = chapterAttachments.getObject(n);
+						if (!id.equals(attachment.getString("name")))
+							continue;
+						String url = attachment.getString("url");
+						scheduleThumb(img, url);
+						break;
+					}
+				}
+				f.append(img);
 			}
 			if (gauge != null) gauge.setValue(i);
 		}
@@ -741,6 +799,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		} catch (Exception e) {}
 	}
 	
+	private static void scheduleThumb(ImageItem item, String url) {
+		if (coverLoading == 3 || item == null || url == null) return;
+		synchronized (thumbLoadLock) {
+			thumbsToLoad.addElement(new Object[] { url, item });
+			thumbLoadLock.notifyAll();
+		}
+	}
+	
 	private static int getHeight() {
 		return mainForm.getHeight();
 	}
@@ -752,15 +818,35 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		}
 		display.setCurrent(a, d);
 	}
-
+	
 	static void display(Displayable d) {
+		display(d, false);
+	}
+
+	static void display(Displayable d, boolean back) {
 		if (d instanceof Alert) {
 			display.setCurrent((Alert) d, mainForm);
 			return;
 		}
 		if (d == null)
 			d = mainForm;
+		Displayable p = display.getCurrent();
 		display.setCurrent(d);
+		// TODO resume thumbnail loading
+//		if (p == null || p == d) return;
+//		if (!back) return;
+//		if (coverLoading == 3 || p == mainForm) return;
+//		if (d == listForm) {
+//			try {
+//				for (int i = 0, l = ((Form) p).size(); i < l; i++) {
+//					Item item = ((Form) d).get(i);
+//					if (!(item instanceof ImageItem) ||
+//							(((ImageItem) item).getImage() != null))
+//						continue;
+//					scheduleThumb((ImageItem) item, ((ImageItem) item).getAltText());
+//				}
+//			} catch (Exception e) {}
+//		}
 	}
 
 	private static Alert errorAlert(String text) {
@@ -877,7 +963,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		byte[] buf = new byte[i <= 0 ? 16384 : i];
 		i = 0;
 		int j;
-		while((j = in.read(buf, i, buf.length - i)) != -1) {
+		while ((j = in.read(buf, i, buf.length - i)) != -1) {
 			if ((i += j) >= buf.length) {
 				System.arraycopy(buf, 0, buf = new byte[i + 16384], 0, i);
 			}
@@ -997,13 +1083,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		int [] data = new int[w2 * h2];
 		int [] buffer = new int[w1 * 2];
 		
-		for(int offset = 0, i = 0; i < h2; i++) {
+		for (int offset = 0, i = 0; i < h2; i++) {
 			org.getRGB( buffer, 0, w1, 0, i * 2, w1, 2); // get two lines from the original
 			
 			int o1 = 0, o2 = 1;
 			int o3 = w1, o4 = w1 + 1;
 			
-			for(int j = 0; j < w2; j++) {
+			for (int j = 0; j < w2; j++) {
 				data[offset ++] = ((
 						((buffer[o1] & 0x00FF00FF) + (buffer[o2] & 0x00FF00FF) + (buffer[o3] & 0x00FF00FF) + (buffer[o4] & 0x00FF00FF)) >> 2
 						) & 0x00FF00FF) | ((
