@@ -268,6 +268,26 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				f.addCommand(backCmd);
 				f.setCommandListener(this);
 				
+				fontSizeChoice = new ChoiceGroup("Размер шрифта", ChoiceGroup.POPUP, new String[] {
+						"Мелкий",
+						"Обычный",
+						"Крупный"
+				}, null);
+				fontSizeChoice.setSelectedIndex(fontSize, true);
+				f.append(fontSizeChoice);
+				
+				chapterSetsChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
+						"Показ во время парсинга",
+						"Отключить форматирование",
+						"Загружать иллюстрации",
+						"Загружать обложки"
+				}, null);
+				chapterSetsChoice.setSelectedIndex(0, showChapterWhileParsing);
+				chapterSetsChoice.setSelectedIndex(1, noFormat);
+				chapterSetsChoice.setSelectedIndex(2, loadChapterImages);
+				chapterSetsChoice.setSelectedIndex(3, loadCovers);
+				f.append(chapterSetsChoice);
+				
 				proxyField = new TextField("URL прокси", proxyUrl, 200, TextField.NON_PREDICTIVE);
 				f.append(proxyField);
 				
@@ -284,26 +304,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				}, null);
 				coversChoice.setSelectedIndex(thumbLoading, true);
 				f.append(coversChoice);
-				
-				chapterSetsChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
-						"Показ во время парсинга",
-						"Отключить форматирование",
-						"Загружать иллюстрации",
-						"Загружать обложки"
-				}, null);
-				chapterSetsChoice.setSelectedIndex(0, showChapterWhileParsing);
-				chapterSetsChoice.setSelectedIndex(1, noFormat);
-				chapterSetsChoice.setSelectedIndex(2, loadChapterImages);
-				chapterSetsChoice.setSelectedIndex(3, loadCovers);
-				f.append(chapterSetsChoice);
-				
-				fontSizeChoice = new ChoiceGroup("Размер шрифта", ChoiceGroup.POPUP, new String[] {
-						"Мелкий",
-						"Обычный",
-						"Крупный"
-				}, null);
-				fontSizeChoice.setSelectedIndex(fontSize, true);
-				f.append(fontSizeChoice);
 			}
 			display(settingsForm);
 			return;
@@ -316,7 +316,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			String s = ((TextBox) d).getString();
 			try {
 				int value = Integer.parseInt(s);
-				if (value < 0 || value > 100) throw new Exception();
+				if (value < -1 || value > 100) throw new Exception();
 				setLight(brightness = value);
 				saveSettings();
 				display(null, true);
@@ -890,6 +890,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 	
 	private static void setLight(int value) {
+		if (value == -1) return;
 		try {
 			DeviceControl.setLights(0, value);
 		} catch (Throwable e) {}
