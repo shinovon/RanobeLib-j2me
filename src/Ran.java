@@ -7,6 +7,7 @@ import javax.microedition.io.Connector;
 import javax.microedition.io.HttpConnection;
 import javax.microedition.lcdui.Alert;
 import javax.microedition.lcdui.AlertType;
+import javax.microedition.lcdui.ChoiceGroup;
 import javax.microedition.lcdui.Command;
 import javax.microedition.lcdui.CommandListener;
 import javax.microedition.lcdui.Display;
@@ -18,7 +19,6 @@ import javax.microedition.lcdui.Image;
 import javax.microedition.lcdui.ImageItem;
 import javax.microedition.lcdui.Item;
 import javax.microedition.lcdui.ItemCommandListener;
-import javax.microedition.lcdui.Spacer;
 import javax.microedition.lcdui.StringItem;
 import javax.microedition.lcdui.TextField;
 import javax.microedition.lcdui.Ticker;
@@ -68,6 +68,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static Form settingsForm;
 	
 	private static TextField searchField;
+
+	private static TextField proxyField;
+	private static ChoiceGroup proxyChoice;
+	private static ChoiceGroup coversChoice;
+	private static ChoiceGroup chapterSetChoice;
 	
 	private static int run;
 	private static boolean running;
@@ -84,8 +89,10 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	// settings
 	private static String proxyUrl = null;
 	private static boolean onlineResize = false;
-	private static boolean useProxy = true;
+	private static boolean useProxy = false;
+	private static int coverLoading;
 	private static boolean showChapterWhileParsing = true;
+	private static boolean noFormat;
 
 	protected void destroyApp(boolean u) {}
 
@@ -142,6 +149,10 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		display.setCurrent(mainForm = f);
 
 		start(RUN_THUMBNAILS);
+		
+		if (coverLoading != 1 && (coverLoading == 2)) {
+			start(RUN_THUMBNAILS);
+		}
 	}
 
 	public void commandAction(Command c, Displayable d) {
@@ -160,7 +171,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			if (d == listForm) {
 				listForm = null;
 			} else if (d == settingsForm) {
-				// TODO
+				proxyUrl = proxyField.getString();
+				useProxy = proxyChoice.isSelected(0);
+				onlineResize = proxyChoice.isSelected(1);
+				coverLoading = coversChoice.getSelectedIndex();
+				showChapterWhileParsing = chapterSetChoice.isSelected(0);
+				noFormat = chapterSetChoice.isSelected(1);
+				
 				try {
 					RecordStore.deleteRecordStore(SETTINGS_RMS);
 				} catch (Exception e) {}
@@ -170,6 +187,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					j.put("onlineResize", onlineResize);
 					j.put("useProxy", useProxy);
 					j.put("showChapterWhileParsing", showChapterWhileParsing);
+					j.put("noFormat", noFormat);
 					
 					byte[] b = j.toString().getBytes("UTF-8");
 					RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);
@@ -217,7 +235,31 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				Form f = settingsForm = new Form("Настройки");
 				f.addCommand(backCmd);
 				f.setCommandListener(this);
-				// TODO
+				
+				proxyField = new TextField("URL прокси", proxyUrl, 200, TextField.NON_PREDICTIVE);
+				f.append(proxyField);
+				
+				proxyChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
+						"Исп. прокси",
+						"Масшт. изображений онлайн"
+				}, null);
+				proxyChoice.setSelectedIndex(0, useProxy);
+				proxyChoice.setSelectedIndex(1, onlineResize);
+				f.append(proxyChoice);
+				
+				coversChoice = new ChoiceGroup("Загрузка обложек", ChoiceGroup.POPUP, new String[] {
+						"Авто", "1 поток", "Мультипоток", "Выкл."
+				}, null);
+				coversChoice.setSelectedIndex(coverLoading, true);
+				f.append(coversChoice);
+				
+				chapterSetChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
+						"Показ во время парсинга",
+						"Отключить форматирование"
+				}, null);
+				chapterSetChoice.setSelectedIndex(0, showChapterWhileParsing);
+				chapterSetChoice.setSelectedIndex(1, noFormat);
+				f.append(chapterSetChoice);
 			}
 			display(settingsForm);
 			return;
@@ -299,12 +341,17 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						
 						if (url == null) continue;
 						
-						try { 
-							Image img = getImage(proxyUrl(url));
-
-							int h = getHeight() / 3;
-							int w = (int) (((float) h / img.getHeight()) * img.getWidth());
-							img = resize(img, w, h);
+						try {
+							Image img;
+							if (onlineResize) {
+								img = getImage(proxyUrl(url + ";th=" + (getHeight() / 3)));
+							} else {
+								img = getImage(proxyUrl(url));
+	
+								int h = getHeight() / 3;
+								int w = (int) (((float) h / img.getHeight()) * img.getWidth());
+								img = resize(img, w, h);
+							}
 							
 							item.setImage(img);
 						} catch (Exception e) {
@@ -338,11 +385,13 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					item.setDefaultCommand(mangaItemCmd);
 					item.setItemCommandListener(this);
 					
-					JSONObject cover = v.getObject("cover");
-					
-					synchronized (thumbLoadLock) {
-						thumbsToLoad.addElement(new Object[] { cover.getString("default", cover.getString("thumbnail")), item });
-						thumbLoadLock.notifyAll();
+					if (coverLoading != 3) {
+						JSONObject cover = v.getObject("cover");
+						
+						synchronized (thumbLoadLock) {
+							thumbsToLoad.addElement(new Object[] { cover.getString("default", cover.getString("thumbnail")), item });
+							thumbLoadLock.notifyAll();
+						}
 					}
 					
 					f.append(item);
@@ -428,7 +477,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			}
 			break;
 		}
-		case RUN_CHAPTER: {
+		case RUN_CHAPTER: { // load chapter
 			Form f = chapterForm;
 			try {
 				Alert a = loadingAlert();
@@ -457,13 +506,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				
 				Object content = j.get("content");
 				parse: {
-					if (content instanceof String) {
+					StringItem s;
+					boolean noFormat = Ran.noFormat;
+					if (content instanceof String) { // parse html
 						String src = (String) content;
 						int d = src.indexOf('<');
 						int len = src.length();
 						if (len == 0) break parse;
 						int o = 0;
-						StringItem s;
 						sb.setLength(0);
 						int fstyle = Font.STYLE_PLAIN;
 						int fsize = Font.SIZE_MEDIUM;
@@ -476,7 +526,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 								char l = 0;
 								for (int i = o; i < d; ++i) {
 									char c = chars[i];
-									if (c == '\r' || c == '\n' || c == '\t') {
+									if (c == '\r' || c == '\n' || c == '\t') { // whitespace
 										c = ' ';
 									} else if (c == '&') {
 										char t;
@@ -495,13 +545,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 											c = '>';
 										} else i--;
 									}
-									if (c == ' ' && l == ' ') {
+									if (c == ' ' && l == ' ') { // ignore repeated whitespace
 										continue;
 									}
 									l = c;
 									sb.append(c);
 								}
-								if (sb.length() != 0) {
+								
+								if (!noFormat && sb.length() != 0) {
 									s = new StringItem(null, sb.toString());
 									s.setFont(getFont(0, fstyle, fsize));
 									f.append(s);
@@ -513,43 +564,66 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 								if (d == len) break;
 							}
 							int e = src.indexOf('>', d);
-							if (chars[d + 1] == '/') {
-								if ((chars[d + 2] == 'b' && chars[d + 3] == '>')
-										|| (chars[d + 2] == 's' && chars[d + 3] == 't')) {
-									fstyle &= ~Font.STYLE_BOLD;
-								} else if (chars[d + 2] == 'h') {
-									fsize = Font.SIZE_MEDIUM;
-									if (chars[d + 3] == '1') fstyle &= ~Font.STYLE_BOLD;
-								} else if ((chars[d + 2] == 'e' && chars[d + 3] == 'm')
-									|| (chars[d + 2] == 'i' && chars[d + 3] == '>')) {
-									fstyle &= ~Font.STYLE_ITALIC;
-								} else if (chars[d + 2] == 's' && chars[d + 3] == 'm') {
-									fsize = Font.SIZE_MEDIUM;
-								} else if (chars[d + 2] == 's' && chars[d + 3] == 'u') {
-									fstyle &= ~Font.STYLE_UNDERLINED;
-								} else if (chars[d + 2] == 'p') {
-									sb.append('\n');
-								}
-							} else {
-								if ((chars[d + 1] == 'b' && chars[d + 2] == '>')
-										|| (chars[d + 1] == 's' && chars[d + 2] == 't')) {
-									fstyle |= Font.STYLE_BOLD;
-								} else if (chars[d + 1] == 'h') {
-									fsize = Font.SIZE_LARGE;
-									if (chars[d + 2] == '1') fstyle |= Font.STYLE_BOLD;
-								} else if ((chars[d + 1] == 'e' && chars[d + 2] == 'm')
-										|| (chars[d + 1] == 'i' && chars[d + 2] == '>')) {
-									fstyle |= Font.STYLE_ITALIC;
-								} else if (chars[d + 1] == 's' && chars[d + 2] == 'm') {
-									fsize = Font.SIZE_SMALL;
-								} else if (chars[d + 1] == 's' && chars[d + 2] == 'u') {
-									fstyle |= Font.STYLE_UNDERLINED;
-								} else if (chars[d + 1] == 'p'
+							if (noFormat) {
+								if (chars[d + 1] == 'p'
+										|| (chars[d + 1] == '/' && chars[d + 2] == 'p')
 										|| (chars[d + 1] == 'b' && chars[d + 2] == 'r')) {
 									sb.append('\n');
-								} else if (chars[d + 1] == 'i' && chars[d + 2] == 'm') {
-									// TODO
-									f.append(new ImageItem("Картинка", null, 0, null));
+								}
+							} else { // format by tags
+								if (chars[d + 1] == '/') {
+									if ((chars[d + 2] == 'b' && chars[d + 3] == '>')
+											|| (chars[d + 2] == 's' && chars[d + 3] == 't')) {
+										// </b> or </strong>
+										fstyle &= ~Font.STYLE_BOLD;
+									} else if (chars[d + 2] == 'h') { // </h
+										fsize = Font.SIZE_MEDIUM;
+										// </h1>
+										if (chars[d + 3] == '1') fstyle &= ~Font.STYLE_BOLD;
+									} else if ((chars[d + 2] == 'e' && chars[d + 3] == 'm')
+										|| (chars[d + 2] == 'i' && chars[d + 3] == '>')) {
+										// </em> or </i>
+										fstyle &= ~Font.STYLE_ITALIC;
+									} else if (chars[d + 2] == 's' && chars[d + 3] == 'm') {
+										// </small>
+										fsize = Font.SIZE_MEDIUM;
+									} else if (chars[d + 2] == 's' && chars[d + 3] == 'u') {
+										// </sub>
+										fstyle &= ~Font.STYLE_UNDERLINED;
+									} else if (chars[d + 2] == 'p') {
+										// </p>
+										sb.append('\n');
+									}
+								} else {
+									if ((chars[d + 1] == 'b' && chars[d + 2] == '>')
+											|| (chars[d + 1] == 's' && chars[d + 2] == 't')) {
+										// <b> or <strong>
+										fstyle |= Font.STYLE_BOLD;
+									} else if (chars[d + 1] == 'h') {
+										// <h
+										fsize = Font.SIZE_LARGE;
+										// <h1>
+										if (chars[d + 2] == '1') fstyle |= Font.STYLE_BOLD;
+									} else if ((chars[d + 1] == 'e' && chars[d + 2] == 'm')
+											|| (chars[d + 1] == 'i' && chars[d + 2] == '>')) {
+										// <em> or <i>
+										fstyle |= Font.STYLE_ITALIC;
+									} else if (chars[d + 1] == 's' && chars[d + 2] == 'm') {
+										// <small>
+										fsize = Font.SIZE_SMALL;
+									} else if (chars[d + 1] == 's' && chars[d + 2] == 'u') {
+										// <sub>
+										fstyle |= Font.STYLE_UNDERLINED;
+									} else if (chars[d + 1] == 'p'
+											|| (chars[d + 1] == 'b' && chars[d + 2] == 'r')) {
+										// <p> or <br>
+										sb.append('\n');
+									} else if (chars[d + 1] == 'i' && chars[d + 2] == 'm') {
+										// <img> TODO
+										f.append(new ImageItem("Картинка", null, 0, null));
+									}
+									
+									// TODO: <li> ?
 								}
 							}
 							d = src.indexOf('<', o = e + 1);
@@ -558,16 +632,21 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 							}
 						}
 						chars = null;
-	//					if (tidy == null) tidy = new Tidy();
-	//					parseHtmlContent(f, tidy.parseDOM("<html>".concat((String) content).concat("</html>")).getDocumentElement().getChildNodes());
 					} else {
+						// json
 						String type = ((JSONObject) content).getString("type");
 						if ("doc".equals(type)) {
-							parseJsonContent(f, ((JSONObject) content).getArray("content"), gauge);
+							parseJsonContent(f, ((JSONObject) content).getArray("content"), gauge, noFormat ? sb : null);
 						} else {
 							// unknown
 							f.append(content.toString());
 						}
+					}
+					if (!noFormat) {
+						s = new StringItem(null, sb.toString());
+						s.setFont(getFont(0, Font.STYLE_PLAIN, Font.SIZE_MEDIUM));
+						f.append(s);
+						sb.setLength(0);
 					}
 				}
 
@@ -590,7 +669,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		running = false;
 	}
 
-	private static void parseJsonContent(Form f, JSONArray content, Gauge gauge) {
+	private static void parseJsonContent(Form f, JSONArray content, Gauge gauge, StringBuffer sb) {
+		// if sb is not null, turn off formatting
+		
 		int l = content.size();
 		if (l == 0) return;
 		if (gauge != null) gauge.setMaxValue(l);
@@ -599,38 +680,49 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			String type = e.getString("type");
 			
 			if ("paragraph".equals(type)) {
-				f.append("\n");
-				if (e.has("content")) parseJsonContent(f, e.getArray("content"), null);
-				
-//				Spacer s = new Spacer(8, smallPlainFont.getHeight());
-//				s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-//				f.append(s);
+				if (sb != null) {
+					sb.append('\n');
+					if (e.has("content")) parseJsonContent(f, e.getArray("content"), null, sb);
+					sb.append('\n');
+				} else {
+					f.append("\n");
+					if (e.has("content")) parseJsonContent(f, e.getArray("content"), null, null);
+					
+//					Spacer s = new Spacer(8, smallPlainFont.getHeight());
+//					s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+//					f.append(s);
 
-				f.append("\n");
+					f.append("\n");
+				}
+				
 			} else if ("text".equals(type)) {
-				StringItem s = new StringItem(null, e.getString("text"));
-				int style = 0;
-				if (e.has("marks")) {
-					JSONArray marks = e.getArray("marks");
-					int k = marks.size();
-					for (int m = 0; m < k; ++m) {
-						String t = marks.getObject(m).getString("type");
-						if ("italic".equals(t)) {
-							style |= Font.STYLE_ITALIC;
-						} else if ("bold".equals(t)) {
-							style |= Font.STYLE_BOLD;
+				if (sb != null) {
+					sb.append(e.getString("text"));
+				} else {
+					StringItem s = new StringItem(null, e.getString("text"));
+					int style = 0;
+					if (e.has("marks")) {
+						JSONArray marks = e.getArray("marks");
+						int k = marks.size();
+						for (int m = 0; m < k; ++m) {
+							String t = marks.getObject(m).getString("type");
+							if ("italic".equals(t)) {
+								style |= Font.STYLE_ITALIC;
+							} else if ("bold".equals(t)) {
+								style |= Font.STYLE_BOLD;
+							}
 						}
 					}
+					s.setFont(getFont(0, style, Font.SIZE_MEDIUM));
+					f.append(s);
 				}
-				s.setFont(getFont(0, style, Font.SIZE_MEDIUM));
-				f.append(s);
-			} else if ("image".equals(type)) {
+			} else if ("listItem".equals(type)) {
+				// TODO
+				if (e.has("content")) parseJsonContent(f, e.getArray("content"), null, sb);
+			} else if (sb != null && "image".equals(type)) {
 				// TODO attrs:[images:[{image:id}]]
 //				String url = e.getArray("attrs").getObject(0).getArray("images").getObject(0).getString("image");
 				f.append(new ImageItem("Картинка", null, 0, null));
-			} else if ("listItem".equals(type)) {
-				// TODO
-				if (e.has("content")) parseJsonContent(f, e.getArray("content"), null);
 			}
 			if (gauge != null) gauge.setValue(i);
 		}
