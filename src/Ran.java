@@ -278,9 +278,9 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				
 				chapterSetsChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
 						"Показ во время парсинга",
-						"Отключить форматирование",
-						"Загружать иллюстрации",
-						"Загружать обложки"
+						"Откл. форматирование",
+						"Загр. иллюстрации",
+						"Загр. обложки"
 				}, null);
 				chapterSetsChoice.setSelectedIndex(0, showChapterWhileParsing);
 				chapterSetsChoice.setSelectedIndex(1, noFormat);
@@ -293,7 +293,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				
 				proxyChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
 						"Исп. прокси",
-						"Масшт. изображений онлайн"
+						"Онлайн масшт. изображений"
 				}, null);
 				proxyChoice.setSelectedIndex(0, useProxy);
 				proxyChoice.setSelectedIndex(1, onlineResize);
@@ -747,6 +747,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						s = new StringItem(null, sb.toString());
 						s.setFont(getFont(0, Font.STYLE_PLAIN, Font.SIZE_MEDIUM));
 						f.append(s);
+						f.append("\n\n");
 						sb.setLength(0);
 					}
 				}
