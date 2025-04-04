@@ -26,6 +26,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 
+import javax.microedition.io.StreamConnection;
+
 // Streaming JSON
 
 public class JSONStream extends Reader {
@@ -36,6 +38,7 @@ public class JSONStream extends Reader {
 	private boolean eof;
 	private char prev;
 	private boolean usePrev;
+	private StreamConnection connection;
 	
 	private JSONStream() {}
 	
@@ -49,6 +52,18 @@ public class JSONStream extends Reader {
 	public static JSONStream getStream(InputStream in) throws IOException {
 		JSONStream json = new JSONStream();
 		json.init(in);
+		char c = json.nextTrim();
+		if (c != '{' && c != '[')
+			throw new RuntimeException("JSON: getStream: Not json");
+		json.isObject = c == '{';
+		json.usePrev = true;
+		return json;
+	}
+	
+	public static JSONStream getStream(StreamConnection sc) throws IOException {
+		JSONStream json = new JSONStream();
+		json.connection = sc;
+		json.init(sc.openInputStream());
 		char c = json.nextTrim();
 		if (c != '{' && c != '[')
 			throw new RuntimeException("JSON: getStream: Not json");
@@ -158,6 +173,11 @@ public class JSONStream extends Reader {
 //		back();
 		
 		while (true) {
+			c = nextTrim();
+			if (c == ',') continue;
+			if (c != '"')
+				throw new RuntimeException("JSON: jumpToKey: malformed object at ".concat(Integer.toString(index)));
+			back();
 			if (nextString(true).equals(key)) {
 				// jump to value
 				if (nextTrim() != ':')
@@ -344,6 +364,7 @@ public class JSONStream extends Reader {
 	public void reset() throws IOException {
 		index = prev = 0;
 		usePrev = false;
+		eof = false;
 		reader.reset();
 	}
 	
@@ -353,6 +374,7 @@ public class JSONStream extends Reader {
 		} catch (IOException e) {}
 		index = prev = 0;
 		usePrev = false;
+		eof = false;
 		init(is);
 	}
 	
@@ -366,12 +388,15 @@ public class JSONStream extends Reader {
 		JSONObject r = new JSONObject();
 		object: {
 		while (true) {
+			char c = nextTrim();
+			if (c == '}') break object;
+			back();
 			String key = nextString(true);
 			if (nextTrim() != ':')
 				throw new RuntimeException("JSON: nextObject: malformed object at ".concat(Integer.toString(index)));
 			Object val = null;
-			char c = nextTrim();
-			switch(c) {
+			c = nextTrim();
+			switch (c) {
 			case '}':
 				break object;
 			case '{':
@@ -503,7 +528,7 @@ public class JSONStream extends Reader {
 			}
 			if (c == 0 || (l != '\\' && c == '"')) break;
 			sb.append(c);
-			l = c;
+			l = l == '\\' ? 0 : c;
 		}
 		if (eof)
 			throw new IOException("nextString: Unexpected end");
@@ -647,6 +672,9 @@ public class JSONStream extends Reader {
         iBufPos = 0;
         if (reader != null) {
             reader.close();
+        }
+        if (connection != null) {
+        	connection.close();
         }
     }
 
