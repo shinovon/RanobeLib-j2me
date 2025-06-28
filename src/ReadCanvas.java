@@ -142,7 +142,7 @@ public class ReadCanvas extends GameCanvas {
 			Object[] obj = (Object[]) render.elementAt(i);
 			int[] pos = (int[]) obj[2];
 			int y = pos[1] - scroll;
-			if (y < 0) continue;
+			if (y < -30) continue;
 			Font font = (Font) obj[1];
 			if (y < -font.getHeight()) continue;
 			if (y > h) break;
