@@ -438,7 +438,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						try {
 							Image img;
 							if (onlineResize) {
-								img = getImage(proxyUrl(url + ";th=" + (getHeight() / 3)));
+								img = getImage(proxyUrl(url + ";jpg;th=" + (getHeight() / 3)));
 							} else {
 								img = getImage(proxyUrl(url));
 	
@@ -503,12 +503,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			StringItem s;
 			try {
 				StringBuffer sb = new StringBuffer("manga/").append(mangaId);
-				JSONObject j = (JSONObject) api(sb.toString());
-				
-				s = new StringItem(null, j.getString("rus_name", j.getString("name")));
-				s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
-				f.append(s);
-				// TODO
+				try {
+					JSONObject j = (JSONObject) api(sb.toString());
+					
+					s = new StringItem(null, j.getString("rus_name", j.getString("name")));
+					s.setLayout(Item.LAYOUT_LEFT | Item.LAYOUT_NEWLINE_AFTER | Item.LAYOUT_NEWLINE_BEFORE);
+					f.append(s);
+					// TODO
+				} catch (Exception ignored) {}
 				
 				chapterItems = new Hashtable();
 				
@@ -842,7 +844,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private void _repaint(ReadCanvas canvas) {
 		long time = System.currentTimeMillis();
 		canvas.paint();
-		canvas.flushGraphics();
 		repaintTime = (int) (System.currentTimeMillis() - time);
 	}
 	
@@ -857,12 +858,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		synchronized (repaintLock) {
 			repaintLock.notify();
 		}
-	}
-	
-	private void limitFramerate() throws InterruptedException {
-		int i = 33;
-		i -= repaintTime;
-		if(i > 0) Thread.sleep(i);
 	}
 
 	private static void parseJsonContent(Displayable f, JSONArray content, Gauge gauge, StringBuffer sb) {
@@ -1218,7 +1213,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	
 	private static HttpConnection open(String url) throws IOException {
 		HttpConnection hc = (HttpConnection) Connector.open(url);
-		hc.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:131.0) Gecko/20100101 Firefox/131.0");
+		hc.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0");
 		if (compress) hc.setRequestProperty("Accept-Encoding", "gzip, deflate");
 		return hc;
 	}
