@@ -102,7 +102,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static Vector thumbsToLoad = new Vector();
 	
 	// settings
-	private static String proxyUrl = "http://nnp.nnchan.ru/hproxy.php?";
+	private static String proxyUrl = "http://nnproject.cc/hproxy.php?";
 	private static boolean onlineResize = true;
 	private static boolean useProxy = false;
 	private static int thumbLoading;
