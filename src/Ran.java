@@ -1115,8 +1115,6 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		try {
 			hc = open(proxyUrl(SOCIAL_API_URL.concat(url)));
 			hc.setRequestMethod("GET");
-			hc.setRequestProperty("Origin", "https://ranobelib.me");
-			hc.setRequestProperty("Referrer", "https://ranobelib.me");
 			int c;
 			if ((c = hc.getResponseCode()) >= 400) {
 				throw new IOException("HTTP ".concat(Integer.toString(c)));
@@ -1214,6 +1212,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static HttpConnection open(String url) throws IOException {
 		HttpConnection hc = (HttpConnection) Connector.open(url);
 		hc.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0");
+		hc.setRequestProperty("Origin", "https://ranobelib.me");
+		hc.setRequestProperty("Referer", "https://ranobelib.me");
 		if (compress) hc.setRequestProperty("Accept-Encoding", "gzip, deflate");
 		return hc;
 	}
