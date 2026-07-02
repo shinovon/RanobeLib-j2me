@@ -143,7 +143,7 @@ public class ReadCanvas extends GameCanvas {
 
 		this.scrolling = animate;
 		if (animate) {
-			Ran.repaint();
+			needRepaint();
 		}
 	}
 
