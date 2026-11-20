@@ -1,6 +1,18 @@
-.settings
-.mtj.tmp
-deployed
-bin
 *.class
 *.jar
+
+/.settings/
+/bin/
+
+/.mtj.tmp/
+/deployed/
+
+# intellij
+/.idea/**
+!/.idea/arifacts
+!/.idea/artifacts/**
+!/.idea/modules.xml
+!/.idea/misc.xml
+/META-INF/
+proguard-local.cfg
+/out/
