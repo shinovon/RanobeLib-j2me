@@ -375,6 +375,21 @@ public class ReadCanvas extends GameCanvas {
 		return start + ((target - start) * mul / div);
 	}
 
+	private static boolean notEmpty(String s) {
+		if (s == null) return false;
+
+		int l = s.length();
+		if (l == 0) return false;
+		if (l > 3) return true;
+
+		int i = 0;
+		while (i < l) {
+			if (s.charAt(i++) > ' ') return true;
+		}
+
+		return false;
+	}
+
 	private static void split(String text, Font font, String url, int width, int x, int y, int idx, int mw, int ch, int sl, int fh, Vector res, boolean center, int[] styleColor, int[] out) {
 		int dy = 0;
 		if (res.size() != 0 && x != 0) {
@@ -390,7 +405,7 @@ public class ReadCanvas extends GameCanvas {
 			int ew = font.substringWidth(text, ch, sl - ch);
 			if (x + ew < width) {
 				String t = text.substring(ch, sl);
-				if (t.length() > 3 || t.trim().length() != 0) {
+				if (notEmpty(t)) {
 					res.addElement(new Object[] { t, font, url, new int[] { x, y + dy, ew, fh }, styleColor });
 					idx++;
 				}
@@ -406,12 +421,12 @@ public class ReadCanvas extends GameCanvas {
 									String t = text.substring(ch, ++j);
 									int tw = font.stringWidth(t);
 									if (center) x = centerRow(width, tw, x, y, res);
-									if (t.length() > 3 || t.trim().length() != 0) {
+									if (notEmpty(t)) {
 										res.addElement(new Object[] { t, font, url, new int[] { x, y + dy, tw, fh }, styleColor });
 										idx++;
 									}
 									mw = Math.max(mw, x + tw);
-									x = 0; y += fh;
+									x = 0; y += fh; dy = 0;
 									i = ch = j;
 									break w;
 								}
@@ -419,12 +434,12 @@ public class ReadCanvas extends GameCanvas {
 							String t = text.substring(ch, i);
 							int tw = font.stringWidth(t);
 							if (center) x = centerRow(width, tw, x, y, res);
-							if (t.length() > 3 || t.trim().length() != 0) {
+							if (notEmpty(t)) {
 								res.addElement(new Object[] { t, font, url, new int[] { x, y + dy, tw, fh }, styleColor });
 								idx++;
 							}
 							mw = Math.max(mw, x + tw);
-							x = 0; y += fh;
+							x = 0; y += fh; dy = 0;
 							ch = i;
 						}
 					}
@@ -432,7 +447,7 @@ public class ReadCanvas extends GameCanvas {
 				if (ch != sl) {
 					String t = text.substring(ch, sl);
 					int tw = font.stringWidth(t);
-					if (t.length() > 3 || t.trim().length() != 0) {
+					if (notEmpty(t)) {
 						res.addElement(new Object[] { t, font, url, new int[] { x, y + dy, tw, fh }, styleColor });
 						idx++;
 					}
