@@ -261,12 +261,12 @@ public class ReadCanvas extends GameCanvas {
 		} catch (Exception ignored) {}
 
 		if (key == Canvas.KEY_NUM2 || key == Canvas.KEY_NUM8) {
-			int dir = key == Canvas.KEY_NUM2 ? 1 : -1;
+			int dir = key == Canvas.KEY_NUM2 ? -1 : 1;
 			scrollTarget = scroll + ((height * 7 / 8) * dir);
 			kineticScroll = 0;
 			needRepaint();
 		} else if (game == Canvas.DOWN || game == Canvas.UP) {
-			int dir = game == Canvas.UP ? 1 : -1;
+			int dir = game == Canvas.UP ? -1 : 1;
 			scrollTarget = scroll + ((height / 5) * dir);
 			kineticScroll = 0;
 			needRepaint();

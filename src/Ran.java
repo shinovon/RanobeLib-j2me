@@ -118,6 +118,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static boolean compress;
 	static boolean fastScrolling;
 
+	// platform
+	private static boolean symbian;
 	private static boolean symbianJrt;
 	private static boolean hasNokiaUi;
 
@@ -144,6 +146,11 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 
 		String p = System.getProperty("microedition.platform");
 		symbianJrt = p != null && p.indexOf("platform=S60") != -1;
+		symbian = symbianJrt
+				|| System.getProperty("com.symbian.midp.serversocket.support") != null
+				|| System.getProperty("com.symbian.default.to.suite.icon") != null
+				|| checkClass("com.symbian.midp.io.protocol.http.Protocol")
+				|| checkClass("com.symbian.lcdjava.io.File");
 
 		try {
 			Class.forName("com.nokia.mid.ui.DeviceControl");
@@ -1074,7 +1081,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 
 	private static Alert errorAlert(String text) {
-		Alert a = new Alert("RanobeLib");
+		Alert a = new Alert(symbian && !symbianJrt ? "RanobeLib" : "");
 		a.setType(AlertType.ERROR);
 		a.setString(text);
 		a.setTimeout(2000);
@@ -1082,7 +1089,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 
 	private static Alert loadingAlert() {
-		Alert a = new Alert("RanobeLib", "Загрузка...", null, null);
+		Alert a = new Alert(symbian && !symbianJrt ? "RanobeLib" : "", "Загрузка...", null, null);
 		a.setCommandListener(midlet);
 		a.addCommand(Alert.DISMISS_COMMAND);
 		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
@@ -1283,6 +1290,15 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static String hex(int i) {
 		String s = Integer.toHexString(i);
 		return "%".concat(s.length() < 2 ? "0" : "").concat(s);
+	}
+
+	private static boolean checkClass(String s) {
+		try {
+			//noinspection ConstantValue
+			return Class.forName(s) != null;
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	static Image resize(Image src_i, int size_w, int size_h) {
