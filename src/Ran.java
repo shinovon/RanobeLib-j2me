@@ -1074,7 +1074,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 
 	private static Alert errorAlert(String text) {
-		Alert a = new Alert("");
+		Alert a = new Alert("RanobeLib");
 		a.setType(AlertType.ERROR);
 		a.setString(text);
 		a.setTimeout(2000);
@@ -1082,7 +1082,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	}
 
 	private static Alert loadingAlert() {
-		Alert a = new Alert("", "Загрузка...", null, null);
+		Alert a = new Alert("RanobeLib", "Загрузка...", null, null);
 		a.setCommandListener(midlet);
 		a.addCommand(Alert.DISMISS_COMMAND);
 		a.setIndicator(new Gauge(null, false, Gauge.INDEFINITE, Gauge.CONTINUOUS_RUNNING));
