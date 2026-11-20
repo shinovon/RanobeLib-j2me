@@ -188,7 +188,8 @@ public class InflaterInputStream extends InputStream {
 			} catch (IOException e) {
 				throw e;
 			} catch (Exception dfe) {
-				throw new IOException("Zip: " + dfe.getMessage());
+				dfe.printStackTrace();
+				throw new IOException("Zip: " + dfe);
 			}
 
 			if (count > 0)
