@@ -116,7 +116,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static int brightness = -1;
 	private static boolean useCanvas = true;
 	private static boolean compress;
-	private static boolean fastScrolling;
+	static boolean fastScrolling;
 
 	private static boolean symbianJrt;
 	private static boolean hasNokiaUi;
