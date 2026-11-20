@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2024-2026 Arman Jussupgaliyev
+*/
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;

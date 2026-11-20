@@ -1,3 +1,7 @@
+/*
+Copyright (c) 2025-2026 Arman Jussupgaliyev
+*/
+
 import java.util.Vector;
 
 import javax.microedition.lcdui.Canvas;
