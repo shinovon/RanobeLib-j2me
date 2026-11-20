@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2024 Arman Jussupgaliyev
+Copyright (c) 2021-2026 Arman Jussupgaliyev
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,7 +19,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
-package cc.nnproject.json;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,14 +26,14 @@ import java.util.Enumeration;
 import java.util.Vector;
 
 public class JSONArray {
-	
+
 	protected Object[] elements;
 	protected int count;
-	
+
 	public JSONArray() {
 		elements = new Object[10];
 	}
-	
+
 	public JSONArray(int size) {
 		elements = new Object[size];
 	}
@@ -45,15 +44,6 @@ public class JSONArray {
 		vector.copyInto(elements);
 	}
 
-	/**
-	 * @deprecated Compatibility with org.json
-	 */
-	public JSONArray(String str) {
-		JSONArray tmp = JSONObject.parseArray(str);
-		elements = tmp.elements;
-		count = tmp.count;
-	}
-
 	public Object get(int index) {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
@@ -61,17 +51,17 @@ public class JSONArray {
 		try {
 			Object o = elements[index];
 			if (o instanceof String[])
-				o = elements[index] = JSONObject.parseJSON(((String[]) o)[0]);
-			if (o == JSONObject.json_null)
+				o = elements[index] = Ran.parseJSON(((String[]) o)[0]);
+			if (o == Ran.json_null)
 				return null;
 			return o;
 		} catch (Exception e) {
 		}
 		throw new RuntimeException("JSON: No value at " + index);
 	}
-	
+
 	// unused methods should be removed by proguard shrinking
-	
+
 	public Object get(int index, Object def) {
 		try {
 			return get(index);
@@ -79,18 +69,18 @@ public class JSONArray {
 			return def;
 		}
 	}
-	
+
 	public Object getNullable(int index) {
 		return get(index, null);
 	}
-	
+
 	public String getString(int index) {
 		Object o = get(index);
 		if (o == null || o instanceof String)
 			return (String) o;
 		return String.valueOf(o);
 	}
-	
+
 	public String getString(int index, String def) {
 		try {
 			Object o = get(index);
@@ -101,11 +91,11 @@ public class JSONArray {
 			return def;
 		}
 	}
-	
+
 	public String getNullableString(int index) {
 		return getString(index, null);
 	}
-	
+
 	public JSONObject getObject(int index) {
 		try {
 			return (JSONObject) get(index);
@@ -113,7 +103,7 @@ public class JSONArray {
 			throw new RuntimeException("JSON: Not object at " + index);
 		}
 	}
-	
+
 	public JSONObject getObject(int index, JSONObject def) {
 		try {
 			return getObject(index);
@@ -121,11 +111,11 @@ public class JSONArray {
 		}
 		return def;
 	}
-	
+
 	public JSONObject getNullableObject(int index) {
 		return getObject(index, null);
 	}
-	
+
 	public JSONArray getArray(int index) {
 		try {
 			return (JSONArray) get(index);
@@ -133,7 +123,7 @@ public class JSONArray {
 			throw new RuntimeException("JSON: Not array at " + index);
 		}
 	}
-	
+
 	public JSONArray getArray(int index, JSONArray def) {
 		try {
 			return getArray(index);
@@ -141,15 +131,15 @@ public class JSONArray {
 		}
 		return def;
 	}
-	
+
 	public JSONArray getNullableArray(int index) {
 		return getArray(index, null);
 	}
-	
+
 	public int getInt(int index) {
-		return JSONObject.getInt(get(index));
+		return Ran.getInt(get(index));
 	}
-	
+
 	public int getInt(int index, int def) {
 		try {
 			return getInt(index);
@@ -157,9 +147,9 @@ public class JSONArray {
 			return def;
 		}
 	}
-	
+
 	public long getLong(int index) {
-		return JSONObject.getLong(get(index));
+		return Ran.getLong(get(index));
 	}
 
 	public long getLong(int index, long def) {
@@ -169,23 +159,11 @@ public class JSONArray {
 			return def;
 		}
 	}
-	
-	public double getDouble(int index) {
-		return JSONObject.getDouble(get(index));
-	}
 
-	public double getDouble(int index, double def) {
-		try {
-			return getDouble(index);
-		} catch (Exception e) {
-			return def;
-		}
-	}
-	
 	public boolean getBoolean(int index) {
 		Object o = get(index);
-		if (o == JSONObject.TRUE) return true;
-		if (o == JSONObject.FALSE) return false;
+		if (o == Ran.TRUE) return true;
+		if (o == Ran.FALSE) return false;
 		if (o instanceof Boolean) return ((Boolean) o).booleanValue();
 		if (o instanceof String) {
 			String s = (String) o;
@@ -203,27 +181,27 @@ public class JSONArray {
 			return def;
 		}
 	}
-	
+
 	public boolean isNull(int index) {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
 		}
-		return elements[index] == JSONObject.json_null;
+		return elements[index] == Ran.json_null;
 	}
-	
+
 	public void add(Object object) {
 		if (object == this) throw new RuntimeException();
-		addElement(JSONObject.getJSON(object));
+		addElement(Ran.getJSON(object));
 	}
-	
+
 	public void add(JSONObject json) {
-		addElement(json);
+		addElement(json == null ? Ran.json_null : json);
 	}
-	
+
 	public void add(String s) {
-		addElement(s);
+		addElement(s == null ? Ran.json_null : s);
 	}
-	
+
 	public void add(int i) {
 		addElement(new Integer(i));
 	}
@@ -232,12 +210,8 @@ public class JSONArray {
 		addElement(new Long(l));
 	}
 
-	public void add(double d) {
-		addElement(new Double(d));
-	}
-	
 	public void add(boolean b) {
-		addElement(new Boolean(b));
+		addElement(b ? Ran.TRUE : Ran.FALSE);
 	}
 
 	/**
@@ -248,23 +222,23 @@ public class JSONArray {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
 		}
-		elements[index] = JSONObject.getJSON(object);
+		elements[index] = Ran.getJSON(object);
 	}
-	
+
 	public void set(int index, JSONObject json) {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
 		}
 		elements[index] = json;
 	}
-	
+
 	public void set(int index, String s) {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
 		}
 		elements[index] = s;
 	}
-	
+
 	public void set(int index, int i) {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
@@ -279,36 +253,29 @@ public class JSONArray {
 		elements[index] = new Long(l);
 	}
 
-	public void set(int index, double d) {
-		if (index < 0 || index >= count) {
-			throw new RuntimeException("JSON: Index out of bounds: " + index);
-		}
-		elements[index] = new Double(d);
-	}
-	
 	public void set(int index, boolean b) {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
 		}
-		elements[index] = new Boolean(b);
+		elements[index] = b ? Ran.TRUE : Ran.FALSE;
 	}
-	
+
 	/**
 	 * @deprecated
 	 */
 	public void put(int index, Object object) {
 		if (object == this) throw new RuntimeException();
-		insertElementAt(JSONObject.getJSON(object), index);
+		insertElementAt(Ran.getJSON(object), index);
 	}
-	
+
 	public void put(int index, JSONObject json) {
 		insertElementAt(json, index);
 	}
-	
+
 	public void put(int index, String s) {
 		insertElementAt(s, index);
 	}
-	
+
 	public void put(int index, int i) {
 		insertElementAt(new Integer(i), index);
 	}
@@ -317,18 +284,14 @@ public class JSONArray {
 		insertElementAt(new Long(l), index);
 	}
 
-	public void put(int index, double d) {
-		insertElementAt(new Double(d), index);
+	public void put(int index, boolean b) {
+		insertElementAt(b ? Ran.TRUE : Ran.FALSE, index);
 	}
 
-	public void put(int index, boolean b) {
-		insertElementAt(new Boolean(b), index);
-	}
-	
 	public boolean has(Object object) {
-		return _indexOf(JSONObject.getJSON(object), 0) != -1;
+		return _indexOf(Ran.getJSON(object), 0) != -1;
 	}
-	
+
 	public boolean has(int i) {
 		return _indexOf(new Integer(i), 0) != -1;
 	}
@@ -337,34 +300,30 @@ public class JSONArray {
 		return _indexOf(new Long(l), 0) != -1;
 	}
 
-	public boolean has(double d) {
-		return _indexOf(new Double(d), 0) != -1;
-	}
-	
 	public boolean has(boolean b) {
-		return _indexOf(new Boolean(b), 0) != -1;
+		return _indexOf(b ? Ran.TRUE : Ran.FALSE, 0) != -1;
 	}
-	
+
 	public int indexOf(Object object) {
-		return _indexOf(JSONObject.getJSON(object), 0);
+		return _indexOf(Ran.getJSON(object), 0);
 	}
 
 	public int indexOf(Object object, int index) {
-		return _indexOf(JSONObject.getJSON(object), index);
+		return _indexOf(Ran.getJSON(object), index);
 	}
-	
+
 	public void clear() {
 		for (int i = 0; i < count; i++) elements[i] = null;
 		count = 0;
 	}
-	
+
 	public boolean remove(Object object) {
-		int i = _indexOf(JSONObject.getJSON(object), 0);
+		int i = _indexOf(Ran.getJSON(object), 0);
 		if (i == -1) return false;
 		remove(i);
 		return true;
 	}
-	
+
 	public void remove(int index) {
 		if (index < 0 || index >= count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
@@ -375,49 +334,17 @@ public class JSONArray {
 			System.arraycopy(elements, index + 1, elements, index, size);
 		elements[count] = null;
 	}
-	
+
 	public int size() {
 		return count;
 	}
-	
+
 	public boolean isEmpty() {
 		return count == 0;
 	}
-	
+
 	public String toString() {
 		return build();
-	}
-	
-	public boolean equals(Object obj) {
-		return this == obj || super.equals(obj) || similar(obj);
-	}
-	
-	public boolean similar(Object obj) {
-		if (!(obj instanceof JSONArray)) {
-			return false;
-		}
-		int size = count;
-		if (size != ((JSONArray)obj).count) {
-			return false;
-		}
-		for (int i = 0; i < size; i++) {
-			Object a = get(i);
-			Object b = ((JSONArray)obj).get(i);
-			if (a == b) {
-				continue;
-			}
-			if (a == null) {
-				return false;
-			}
-			if (a instanceof JSONArray) {
-				if (!((JSONArray)a).similar(b)) {
-					return false;
-				}
-			} else if (!a.equals(b)) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	public String build() {
@@ -433,10 +360,10 @@ public class JSONArray {
 			} else if (v instanceof JSONArray) {
 				s.append(((JSONArray) v).build());
 			} else if (v instanceof String) {
-				s.append("\"").append(JSONObject.escape_utf8((String) v)).append("\"");
+				s.append("\"").append(Ran.escape_utf8((String) v)).append("\"");
 			} else if (v instanceof String[]){
 				s.append(((String[]) v)[0]);
-			} else if (v == JSONObject.json_null) {
+			} else if (v == Ran.json_null) {
 				s.append((String) null);
 			} else {
 				s.append(String.valueOf(v));
@@ -465,14 +392,14 @@ public class JSONArray {
 		while (i < size) {
 			Object v = elements[i];
 			if (v instanceof String[])
-				v = elements[i] = JSONObject.parseJSON(((String[]) v)[0]);
+				v = elements[i] = Ran.parseJSON(((String[]) v)[0]);
 			if (v instanceof JSONObject) {
 				s.append(((JSONObject) v).format(l + 1));
 			} else if (v instanceof JSONArray) {
 				s.append(((JSONArray) v).format(l + 1));
 			} else if (v instanceof String) {
-				s.append("\"").append(JSONObject.escape_utf8((String) v)).append("\"");
-			} else if (v == JSONObject.json_null) {
+				s.append("\"").append(Ran.escape_utf8((String) v)).append("\"");
+			} else if (v == Ran.json_null) {
 				s.append((String) null);
 			} else {
 				s.append(v);
@@ -489,7 +416,7 @@ public class JSONArray {
 		}
 		return s.toString();
 	}
-	
+
 	public void write(OutputStream out) throws IOException {
 		int size = count;
 		out.write((byte) '[');
@@ -506,11 +433,11 @@ public class JSONArray {
 				((JSONArray) v).write(out);
 			} else if (v instanceof String) {
 				out.write((byte) '"');
-				JSONObject.writeString(out, (String) v);
+				Ran.writeString(out, (String) v);
 				out.write((byte) '"');
 			} else if (v instanceof String[]) {
 				out.write((((String[]) v)[0]).getBytes("UTF-8"));
-			} else if (v == JSONObject.json_null) {
+			} else if (v == Ran.json_null) {
 				out.write((byte) 'n');
 				out.write((byte) 'u');
 				out.write((byte) 'l');
@@ -529,21 +456,21 @@ public class JSONArray {
 	public Enumeration elements() {
 		return new Enumeration() {
 			int i = 0;
-			
+
 			public boolean hasMoreElements() {
 				return i < count;
 			}
-			
+
 			public Object nextElement() {
 				Object o = elements[i];
 				if (o instanceof String[])
-					o = elements[i] = JSONObject.parseJSON(((String[]) o)[0]);
+					o = elements[i] = Ran.parseJSON(((String[]) o)[0]);
 				i++;
-				return o == JSONObject.json_null ? null : o;
+				return o == Ran.json_null ? null : o;
 			}
 		};
 	}
-	
+
 	public void copyInto(Object[] arr) {
 		copyInto(arr, 0, arr.length);
 	}
@@ -551,7 +478,7 @@ public class JSONArray {
 	public void copyInto(Object[] arr, int offset, int length) {
 		int i = offset;
 		int j = 0;
-		while(i < arr.length && j < length && j < size()) {
+		while (i < arr.length && j < length && j < size()) {
 			arr[i++] = get(j++);
 		}
 	}
@@ -562,7 +489,7 @@ public class JSONArray {
 		for (int i = 0; i < size; i++) {
 			Object o = elements[i];
 			if (o instanceof String[])
-				o = elements[i] = JSONObject.parseJSON(((String[]) o)[0]);
+				o = elements[i] = Ran.parseJSON(((String[]) o)[0]);
 			if (o instanceof JSONObject) {
 				o = ((JSONObject) o).toTable();
 			} else if (o instanceof JSONArray) {
@@ -577,28 +504,28 @@ public class JSONArray {
 		if (count == elements.length) grow();
 		elements[count++] = object;
 	}
-	
+
 	private void insertElementAt(Object object, int index) {
 		if (index < 0 || index > count) {
 			throw new RuntimeException("JSON: Index out of bounds: " + index);
 		}
 		if (count == elements.length) grow();
-		int size = count - index;
+		int size = count - index - 1;
 		if (size > 0)
 			System.arraycopy(elements, index, elements, index + 1, size);
 		elements[index] = object;
 		count++;
 	}
-	
+
 	private int _indexOf(Object object, int start) {
 		for (int i = start; i < count; i++) {
 			if (elements[i] instanceof String[])
-				elements[i] = JSONObject.parseJSON(((String[]) elements[i])[0]);
+				elements[i] = Ran.parseJSON(((String[]) elements[i])[0]);
 			if (object.equals(elements[i])) return i;
 		}
 		return -1;
 	}
-	
+
 	private void grow() {
 		Object[] tmp = new Object[elements.length * 2];
 		System.arraycopy(elements, 0, tmp, 0, count);
