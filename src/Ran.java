@@ -116,6 +116,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static int brightness = -1;
 	private static boolean useCanvas = true;
 	private static boolean compress;
+	private static boolean fastScrolling;
 
 	private static boolean symbianJrt;
 	private static boolean hasNokiaUi;
@@ -165,7 +166,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			fontSize = j.getInt("fontSize", fontSize);
 			brightness = j.getInt("brightness", brightness);
 			compress = j.getBoolean("compress", compress);
-			useCanvas = j.getBoolean("useCanva", useCanvas);
+			useCanvas = j.getBoolean("useCanvas", useCanvas);
+			fastScrolling = j.getBoolean("fastScrolling", fastScrolling);
 		} catch (Exception e) {}
 
 		exitCmd = new Command("Выход", Command.EXIT, 2);
@@ -235,13 +237,20 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				listForm = null;
 			} else if (d == settingsForm) {
 				proxyUrl = proxyField.getString();
+
 				useProxy = proxyChoice.isSelected(0);
 				onlineResize = proxyChoice.isSelected(1);
+				compress = proxyChoice.isSelected(2);
+
 				thumbLoading = coversChoice.getSelectedIndex();
+
 				showChapterWhileParsing = chapterSetsChoice.isSelected(0);
 				noFormat = chapterSetsChoice.isSelected(1);
 				loadChapterImages = chapterSetsChoice.isSelected(2);
 				loadCovers = chapterSetsChoice.isSelected(3);
+				useCanvas = chapterSetsChoice.isSelected(4);
+				fastScrolling = chapterSetsChoice.isSelected(5);
+
 				fontSize = fontSizeChoice.getSelectedIndex();
 
 				saveSettings();
@@ -300,13 +309,15 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						"Откл. форматирование",
 						"Загр. иллюстрации",
 						"Загр. обложки",
-						"Новый просмотрщик"
+						"Новый просмотрщик",
+						"Выкл. анимации",
 				}, null);
 				chapterSetsChoice.setSelectedIndex(0, showChapterWhileParsing);
 				chapterSetsChoice.setSelectedIndex(1, noFormat);
 				chapterSetsChoice.setSelectedIndex(2, loadChapterImages);
 				chapterSetsChoice.setSelectedIndex(3, loadCovers);
 				chapterSetsChoice.setSelectedIndex(4, useCanvas);
+				chapterSetsChoice.setSelectedIndex(5, fastScrolling);
 				f.append(chapterSetsChoice);
 
 				proxyField = new TextField("URL прокси", proxyUrl, 200, TextField.NON_PREDICTIVE);
@@ -1003,6 +1014,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			j.put("brightness", brightness);
 			j.put("compress", compress);
 			j.put("useCanvas", useCanvas);
+			j.put("fastScrolling", fastScrolling);
 
 			byte[] b = j.toString().getBytes("UTF-8");
 			RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);

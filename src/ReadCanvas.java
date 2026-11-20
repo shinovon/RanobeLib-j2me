@@ -84,18 +84,26 @@ public class ReadCanvas extends GameCanvas {
 			}
 		}
 
-		if (scrollTarget >= 0) {
+		if (scrollTarget != -1) {
 			scrollTimer = 0;
 			if (contentHeight <= h) {
 				scroll = 0;
 				scrollTarget = -1;
 			} else {
-				if (Math.abs(scroll - scrollTarget) < 1) {
+				if (slide(0, scroll, scrollTarget, deltaTime)) {
+					animate = true;
+				} else {
 					scroll = scrollTarget;
 					scrollTarget = -1;
-				} else {
-					scroll = (int) lerp(scroll, scrollTarget, deltaTime > 33 ? 4 * deltaTime / 33f : 4F, 20F);
-					animate = true;
+				}
+				if (scroll <= 0) {
+					scroll = 0;
+					scrollTarget = -1;
+					animate = false;
+				} else if (scroll >= contentHeight - height) {
+					scroll = contentHeight - height;
+					scrollTarget = -1;
+					animate = false;
 				}
 			}
 		}
@@ -253,11 +261,11 @@ public class ReadCanvas extends GameCanvas {
 		} catch (Exception ignored) {}
 
 		if (game == Canvas.DOWN) {
-			scrollTarget = scroll + height / 8;
+			scrollTarget = Math.min(scroll + height / 4, contentHeight - height);
 			kineticScroll = 0;
 			needRepaint();
 		} else if (game == Canvas.UP) {
-			scrollTarget = scroll - height / 8;
+			scrollTarget = Math.max(scroll - height / 4, 0);
 			kineticScroll = 0;
 			needRepaint();
 		} else if (key == -7) {
@@ -375,8 +383,32 @@ public class ReadCanvas extends GameCanvas {
 		Ran.repaint();
 	}
 
-	static float lerp(float start, float target, float mul, float div) {
-		return start + ((target - start) * mul / div);
+	private boolean slide(int mode, float val, int target, long deltaTime) {
+		if (!Ran.fastScrolling) {
+			float d = Math.abs(target - val);
+			boolean dir = target - val > 0;
+			if (d < 1) {
+				return false;
+			}
+
+			if (d < 5) {
+				if (dir) {
+					++val;
+				} else {
+					--val;
+				}
+			} else for (int i = 0; i < 1 + (deltaTime > 33 && scrolling ? (deltaTime / 33) - 1 : 0); ++i) {
+				val = val + ((target - val) * 4F / 20);
+			}
+		} else {
+			val = target;
+		}
+
+		if (mode == 0) {
+			scroll = (int) val;
+		}
+
+		return !Ran.fastScrolling;
 	}
 
 	private static boolean notEmpty(String s) {
