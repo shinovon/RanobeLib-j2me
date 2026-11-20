@@ -243,7 +243,11 @@ public class ReadCanvas extends GameCanvas {
 	}
 
 	private void key(int key, boolean repeat) {
-		int game = getGameAction(key);
+		int game = 0;
+		try {
+			game = getGameAction(key);
+		} catch (Exception ignored) {}
+
 		if (game == Canvas.DOWN) {
 			scrollTarget = scroll + height / 8;
 			kineticScroll = 0;

@@ -96,8 +96,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static String chapterParams;
 	private static JSONArray chapterAttachments;
 
-	private static Object thumbLoadLock = new Object();
-	private static Vector thumbsToLoad = new Vector();
+	private static final Object thumbLoadLock = new Object();
+	private static final Vector thumbsToLoad = new Vector();
 
 	// settings
 	private static String proxyUrl = "http://nnproject.cc/hproxy.php?";
@@ -116,13 +116,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static boolean symbianJrt;
 	private static boolean hasNokiaUi;
 
-	private static Object repaintLock = new Object();
+	private static final Object repaintLock = new Object();
 	private static boolean painterRunning;
 	private static boolean repaint;
 	static int repaintTime;
 
 	protected void destroyApp(boolean u) {
 		exiting = true;
+		notifyDestroyed();
 	}
 
 	protected void pauseApp() {}
@@ -159,6 +160,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			loadCovers = j.getBoolean("loadCovers", loadCovers);
 			fontSize = j.getInt("fontSize", fontSize);
 			brightness = j.getInt("brightness", brightness);
+			compress = j.getBoolean("compress", compress);
+			useCanvas = j.getBoolean("useCanva", useCanvas);
 		} catch (Exception e) {}
 
 		exitCmd = new Command("Выход", Command.EXIT, 2);
@@ -292,12 +295,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						"Показ во время парсинга",
 						"Откл. форматирование",
 						"Загр. иллюстрации",
-						"Загр. обложки"
+						"Загр. обложки",
+						"Новый просмотрщик"
 				}, null);
 				chapterSetsChoice.setSelectedIndex(0, showChapterWhileParsing);
 				chapterSetsChoice.setSelectedIndex(1, noFormat);
 				chapterSetsChoice.setSelectedIndex(2, loadChapterImages);
 				chapterSetsChoice.setSelectedIndex(3, loadCovers);
+				chapterSetsChoice.setSelectedIndex(4, useCanvas);
 				f.append(chapterSetsChoice);
 
 				proxyField = new TextField("URL прокси", proxyUrl, 200, TextField.NON_PREDICTIVE);
@@ -305,10 +310,12 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 
 				proxyChoice = new ChoiceGroup("", ChoiceGroup.MULTIPLE, new String[] {
 						"Исп. прокси",
-						"Онлайн масшт. изображений"
+						"Онлайн масшт. изображений",
+						"Исп. сжатие",
 				}, null);
 				proxyChoice.setSelectedIndex(0, useProxy);
 				proxyChoice.setSelectedIndex(1, onlineResize);
+				proxyChoice.setSelectedIndex(2, compress);
 				f.append(proxyChoice);
 
 				coversChoice = new ChoiceGroup("Загрузка изображений", ChoiceGroup.POPUP, new String[] {
@@ -410,7 +417,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 						thumbLoadLock.wait();
 					}
 					Thread.sleep(200);
-					while (thumbsToLoad.size() > 0) {
+					while (thumbsToLoad.size() != 0) {
 						int i = 0;
 						Object[] o = null;
 
@@ -718,7 +725,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 										// <img>
 
 										if (f instanceof ReadCanvas) {
-
+											// TODO
 										} else {
 											ImageItem img = new ImageItem("Картинка", null, 0, null);
 											if (loadChapterImages) {
@@ -829,7 +836,8 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 					i -= repaintTime;
 					if (i > 0) Thread.sleep(i);
 				}
-			} catch (Exception ignored) {
+			} catch (Exception e) {
+				e.printStackTrace();
 			} finally {
 				painterRunning = false;
 			}
@@ -962,7 +970,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 				new Thread(this).start();
 				wait();
 			}
-		} catch (Exception e) {}
+		} catch (Exception ignored) {}
 	}
 
 	private static void scheduleThumb(ImageItem item, String url) {
@@ -976,7 +984,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private void saveSettings() {
 		try {
 			RecordStore.deleteRecordStore(SETTINGS_RMS);
-		} catch (Exception e) {}
+		} catch (Exception ignored) {}
 		try {
 			JSONObject j = new JSONObject();
 			j.put("proxy", proxyUrl);
@@ -989,12 +997,14 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			j.put("loadCovers", loadCovers);
 			j.put("fontSize", fontSize);
 			j.put("brightness", brightness);
+			j.put("compress", compress);
+			j.put("useCanvas", useCanvas);
 
 			byte[] b = j.toString().getBytes("UTF-8");
 			RecordStore r = RecordStore.openRecordStore(SETTINGS_RMS, true);
 			r.addRecord(b, 0, b.length);
 			r.closeRecordStore();
-		} catch (Exception e) {}
+		} catch (Exception ignored) {}
 	}
 
 	private static int getHeight() {
@@ -1005,7 +1015,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		if (value == -1) return;
 		try {
 			DeviceControl.setLights(0, value);
-		} catch (Throwable e) {}
+		} catch (Throwable ignored) {}
 	}
 
 	static void display(Alert a, Displayable d) {
@@ -1125,10 +1135,10 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		} finally {
 			if (in != null) try {
 				in.close();
-			} catch (IOException e) {}
+			} catch (IOException ignored) {}
 			if (hc != null) try {
 				hc.close();
-			} catch (IOException e) {}
+			} catch (IOException ignored) {}
 		}
 //		System.out.println(res);
 		return res;
@@ -1188,12 +1198,10 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		} finally {
 			try {
 				if (in != null) in.close();
-			} catch (IOException e) {
-			}
+			} catch (IOException ignored) {}
 			try {
 				if (hc != null) hc.close();
-			} catch (IOException e) {
-			}
+			} catch (IOException ignored) {}
 		}
 	}
 

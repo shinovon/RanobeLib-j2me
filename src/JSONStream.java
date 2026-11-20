@@ -42,7 +42,7 @@ public class JSONStream extends Reader {
 	JSONStream() {}
 
 	void init(InputStream in) throws IOException {
-		reader = new InputStreamReader(in, Ran.encoding);
+		reader = new InputStreamReader(in, "UTF-8");
 		buffer = new char[16384];
 	}
 
