@@ -266,7 +266,7 @@ public class ReadCanvas extends GameCanvas {
 			kineticScroll = 0;
 			needRepaint();
 		} else if (game == Canvas.DOWN || game == Canvas.UP) {
-			int dir = key == Canvas.DOWN ? 1 : -1;
+			int dir = game == Canvas.UP ? 1 : -1;
 			scrollTarget = scroll + ((height / 5) * dir);
 			kineticScroll = 0;
 			needRepaint();
