@@ -117,6 +117,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 	private static boolean useCanvas = true;
 	private static boolean compress;
 	static boolean fastScrolling;
+	static boolean jsonStream = true;
 
 	// platform
 	private static boolean symbian;
@@ -1150,8 +1151,12 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 			if ((c = hc.getResponseCode()) >= 400) {
 				throw new IOException("HTTP ".concat(Integer.toString(c)));
 			}
-			res = getJSONStream(in = openInputStream(hc)).nextValue();
-//			res = JSONObject.parseObject(readUtf(in = hc.openInputStream(), (int) hc.getLength()));
+			in = openInputStream(hc);
+			if (jsonStream) {
+				res = getJSONStream(in).nextValue();
+			} else {
+				res = parseObject(readUtf(in = hc.openInputStream(), (int) hc.getLength()));
+			}
 //			System.out.println(((JSONObject) res).format(0));
 			if (((JSONObject) res).has("data"))
 				res = ((JSONObject) res).get("data");
@@ -1201,7 +1206,7 @@ public class Ran extends MIDlet implements CommandListener, ItemCommandListener,
 		int j;
 		while ((j = in.read(buf, i, buf.length - i)) != -1) {
 			if ((i += j) >= buf.length) {
-				System.arraycopy(buf, 0, buf = new byte[i + 16384], 0, i);
+				System.arraycopy(buf, 0, buf = new byte[buf.length * 2], 0, i);
 			}
 		}
 		return new String(buf, 0, i, "UTF-8");
