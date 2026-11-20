@@ -260,12 +260,14 @@ public class ReadCanvas extends GameCanvas {
 			game = getGameAction(key);
 		} catch (Exception ignored) {}
 
-		if (game == Canvas.DOWN) {
-			scrollTarget = Math.min(scroll + height / 4, contentHeight - height);
+		if (key == Canvas.KEY_NUM2 || key == Canvas.KEY_NUM8) {
+			int dir = key == Canvas.KEY_NUM2 ? 1 : -1;
+			scrollTarget = scroll + ((height * 7 / 8) * dir);
 			kineticScroll = 0;
 			needRepaint();
-		} else if (game == Canvas.UP) {
-			scrollTarget = Math.max(scroll - height / 4, 0);
+		} else if (game == Canvas.DOWN || game == Canvas.UP) {
+			int dir = key == Canvas.DOWN ? 1 : -1;
+			scrollTarget = scroll + ((height / 5) * dir);
 			kineticScroll = 0;
 			needRepaint();
 		} else if (key == -7) {
